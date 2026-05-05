@@ -8,9 +8,10 @@
     "test:watch": "pnpm -r --filter=./packages/engine test:watch",
     "lint": "pnpm -r lint"
   },
+  "packageManager": "pnpm@10.33.3",
   "engines": {
     "node": ">=20",
-    "pnpm": ">=9"
+    "pnpm": ">=10"
   },
   "devDependencies": {
     "pnpm": "^10.33.3"
