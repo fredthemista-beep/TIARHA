@@ -9,6 +9,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // TIARH design tokens
         primary:  '#107fb7',
         accent:   '#c76060',
         navy:     '#1a1a2e',
@@ -19,6 +20,27 @@ const config: Config = {
         surface:  '#ffffff',
         pagebg:   '#efecec',
         muted:    '#6b7280',
+        // shadcn/ui CSS-variable aliases
+        background: 'var(--background)',
+        foreground: 'var(--foreground)',
+        card: {
+          DEFAULT: 'var(--card)',
+          foreground: 'var(--card-foreground)',
+        },
+        popover: {
+          DEFAULT: 'var(--popover)',
+          foreground: 'var(--popover-foreground)',
+        },
+        secondary: {
+          DEFAULT: 'var(--secondary)',
+          foreground: 'var(--secondary-foreground)',
+        },
+        destructive: {
+          DEFAULT: 'var(--destructive)',
+        },
+        border: 'var(--border)',
+        input: 'var(--input)',
+        ring: 'var(--ring)',
       },
       fontFamily: {
         sans: ['"IBM Plex Sans"', 'DM Sans', 'system-ui', 'sans-serif'],

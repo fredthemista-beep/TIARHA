@@ -5,6 +5,21 @@
 :root {
   --font-sans: 'IBM Plex Sans', 'DM Sans', system-ui;
   --font-mono: 'IBM Plex Mono', 'DM Mono', monospace;
+
+  /* shadcn/ui CSS variables (slate base) */
+  --background: 255 255 255;
+  --foreground: 15 23 42;
+  --card: 255 255 255;
+  --card-foreground: 15 23 42;
+  --popover: 255 255 255;
+  --popover-foreground: 15 23 42;
+  --secondary: 241 245 249;
+  --secondary-foreground: 15 23 42;
+  --destructive: 239 68 68;
+  --border: 226 232 240;
+  --input: 226 232 240;
+  --ring: 148 163 184;
+  --radius: 0.5rem;
 }
 
 * { box-sizing: border-box; }
@@ -12,3 +27,12 @@
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 2px; }
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
