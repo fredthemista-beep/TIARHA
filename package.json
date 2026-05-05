@@ -1,0 +1,15 @@
+{
+  "name": "territorialrh-store",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm -r --filter=./apps/web dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r --filter=./packages/engine test",
+    "test:watch": "pnpm -r --filter=./packages/engine test:watch",
+    "lint": "pnpm -r lint"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  }
+}
