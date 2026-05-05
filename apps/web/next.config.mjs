@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ['@tiarh/engine', '@tiarh/ui'],
+  transpilePackages: ['@tiarh/ui'],
 };
 
 export default nextConfig;
