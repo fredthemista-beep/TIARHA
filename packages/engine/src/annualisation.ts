@@ -27,8 +27,8 @@ export function calculerBaseAnnuelle(params: ParamsBaseAnnuelle): ResultatBaseAn
     };
   }
 
-  const startOfYear = new Date(annee, 0, 1);
-  const endOfYear   = new Date(annee, 11, 31);
+  const startOfYear = new Date(Date.UTC(annee, 0, 1));
+  const endOfYear   = new Date(Date.UTC(annee, 11, 31));
   const msPerDay    = 1000 * 60 * 60 * 24;
 
   const debut = dateDebut

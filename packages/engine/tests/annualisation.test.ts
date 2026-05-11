@@ -55,7 +55,19 @@ describe('calculerBaseAnnuelle — année bissextile', () => {
   it('utilise 366 jours pour 2024', () => {
     const r = calculerBaseAnnuelle({ quotite: 1.0, annee: 2024 });
     expect(r.joursAnnee).toBe(366);
+    expect(r.joursPresence).toBe(366);
     expect(r.estProratise).toBe(false);
     expect(r.heuresDues).toBeCloseTo(HEURES_ANNUELLES, 2);
+  });
+});
+
+describe('calculerBaseAnnuelle — proratisation année bissextile', () => {
+  it('utilise 366 au dénominateur pour une proratisation en 2024', () => {
+    // 2024-01-01 → 2024-06-30 = 182 days (Jan31+Feb29+Mar31+Apr30+May31+Jun30)
+    const r = calculerBaseAnnuelle({ quotite: 1.0, dateFin: '2024-06-30', annee: 2024 });
+    expect(r.joursAnnee).toBe(366);
+    expect(r.joursPresence).toBe(182);
+    expect(r.heuresDues).toBeCloseTo(1607 * (182 / 366), 2);
+    expect(r.estProratise).toBe(true);
   });
 });
