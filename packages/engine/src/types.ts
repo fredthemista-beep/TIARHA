@@ -39,3 +39,49 @@ export interface ResultatHeures {
   joursCET: number;             // jours à créditer au CET
   cetPlafondAtteint: boolean;
 }
+
+// --- Annualisation ---
+
+export interface ParamsBaseAnnuelle {
+  quotite: number;       // 0.0–1.0 (ex : 0.8 pour 80 %)
+  dateDebut?: string;    // 'YYYY-MM-DD' — arrivée en cours d'année
+  dateFin?: string;      // 'YYYY-MM-DD' — départ en cours d'année
+  annee?: number;        // année civile de référence (défaut : année courante)
+}
+
+export interface ResultatBaseAnnuelle {
+  heuresAnnuellesBase: number;  // 1607 × quotite (sans proratisation)
+  heuresDues: number;           // après proratisation si dates fournies
+  joursPresence: number;        // jours de présence effective dans l'année
+  joursAnnee: number;           // jours calendaires de l'année de référence
+  estProratise: boolean;
+}
+
+export interface SaisieMensuelle {
+  mois: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
+  heures: number;
+}
+
+export interface ParamsSoldeAnnuel {
+  heuresDues: number;
+  moisSaisis?: SaisieMensuelle[];      // optionnel — prend le pas sur heuresTotalesManuelle
+  heuresTotalesManuelle?: number;      // total global si pas de suivi mensuel
+}
+
+export interface AlerteLegale {
+  type: 'SEMAINE_MAX' | 'SEMAINE_MOYENNE_MAX' | 'JOUR_MAX';
+  seuil: number;
+  valeurEstimee: number | null;  // null si données insuffisantes
+  depasse: boolean;
+  message: string;               // libellé métier en français
+}
+
+export interface ResultatSoldeAnnuel {
+  heuresRealisees: number;
+  solde: number;              // positif = heures sup, négatif = déficit
+  heuresSup: number;          // max(0, solde)
+  heuresDeficit: number;      // max(0, -solde)
+  progression: number;        // heuresRealisees / heuresDues (peut dépasser 1.0)
+  moisSaisisCount: number;
+  alertesLegales: AlerteLegale[];
+}
