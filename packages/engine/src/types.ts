@@ -65,7 +65,7 @@ export interface SaisieMensuelle {
 export interface ParamsSoldeAnnuel {
   heuresDues: number;
   moisSaisis?: SaisieMensuelle[];      // optionnel — prend le pas sur heuresTotalesManuelle
-  heuresTotalesManuelle?: number;      // total global si pas de suivi mensuel
+  heuresTotalesManuelle?: number;      // total global si pas de suivi mensuel — si les deux sont absents : heuresRealisees = 0
 }
 
 export interface AlerteLegale {
