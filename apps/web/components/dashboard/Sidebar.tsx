@@ -2,19 +2,17 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  LayoutGrid, Users, CircleDollarSign, Calendar, Clock,
-  Shield, BarChart3, Settings,
+  LayoutGrid, CircleDollarSign, Calendar, Clock,
+  BarChart3, Settings,
 } from 'lucide-react';
 
 const NAV = [
-  { href: '/dashboard',                              label: 'Tableau de bord', Icon: LayoutGrid },
-  { href: '/dashboard/agents',                       label: 'Agents',           Icon: Users },
-  { href: '/dashboard/simulations/arret',            label: 'SimulArrêt',       Icon: CircleDollarSign },
-  { href: '/dashboard/simulations/retraite',         label: 'RetireSim',        Icon: BarChart3 },
-  { href: '/dashboard/simulations/heures',           label: 'HeuresSup+',       Icon: Calendar },
-  { href: '/dashboard/simulations/annualisation',    label: 'AnnualisationRH',  Icon: Clock },
-  { href: '/dashboard/conformite',                   label: 'Conformité',        Icon: Shield },
-  { href: '/dashboard/settings',                     label: 'Paramètres',        Icon: Settings },
+  { href: '/',                              label: 'Tableau de bord', Icon: LayoutGrid },
+  { href: '/simulations/arret',             label: 'SimulArrêt',       Icon: CircleDollarSign },
+  { href: '/simulations/retraite',          label: 'RetireSim',        Icon: BarChart3 },
+  { href: '/simulations/heures',            label: 'HeuresSup+',       Icon: Calendar },
+  { href: '/simulations/annualisation',     label: 'AnnualisationRH',  Icon: Clock },
+  { href: '/settings',                      label: 'Paramètres',        Icon: Settings },
 ] as const;
 
 export function Sidebar() {
@@ -39,7 +37,7 @@ export function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 flex flex-col gap-0.5 px-2.5">
         {NAV.map(({ href, label, Icon }) => {
-          const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href));
+          const active = href === '/' ? pathname === '/' : pathname.startsWith(href);
           return (
             <Link
               key={href}
