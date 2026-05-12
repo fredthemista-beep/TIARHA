@@ -71,7 +71,7 @@ export default function LoginPage() {
         <div className="mt-6 pt-4 border-t border-black/5 text-center">
           <p className="text-[10px] text-muted mb-2">Accès sans compte</p>
           <a
-            href="/demo"
+            href="/dashboard"
             className="inline-block w-full text-center text-xs font-medium text-navy border border-navy/20 rounded-lg py-2 hover:bg-navy/5 transition-colors"
           >
             Voir la démo
