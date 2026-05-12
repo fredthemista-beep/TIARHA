@@ -46,7 +46,11 @@ export default function AnnualisationPage() {
 
     const moisSaisis: SaisieMensuelle[] = Object.entries(moisInputs)
       .filter(([, v]) => v !== '' && !isNaN(Number(v)))
-      .map(([k, v]) => ({ mois: Number(k) as SaisieMensuelle['mois'], heures: Number(v) }));
+      .flatMap(([k, v]) => {
+        const mois = Number(k);
+        if (mois < 1 || mois > 12) return [];
+        return [{ mois: mois as SaisieMensuelle['mois'], heures: Number(v) }];
+      });
 
     const resultSolde = calculerSoldeAnnuel({
       heuresDues: resultBase.heuresDues,
@@ -66,7 +70,11 @@ export default function AnnualisationPage() {
     if (!base) return;
     const moisSaisis: SaisieMensuelle[] = Object.entries(next)
       .filter(([, v]) => v !== '' && !isNaN(Number(v)))
-      .map(([k, v]) => ({ mois: Number(k) as SaisieMensuelle['mois'], heures: Number(v) }));
+      .flatMap(([k, v]) => {
+        const mois = Number(k);
+        if (mois < 1 || mois > 12) return [];
+        return [{ mois: mois as SaisieMensuelle['mois'], heures: Number(v) }];
+      });
     setSolde(calculerSoldeAnnuel({
       heuresDues: base.heuresDues,
       moisSaisis,
@@ -238,10 +246,10 @@ export default function AnnualisationPage() {
                         <span>0 h</span>
                         {solde.progression > 1 && (
                           <span style={{ color: colors.warning }} className="font-semibold">
-                            ⚡ Seuil {base.heuresDues.toFixed(0)} h dépassé
+                            Seuil {base.heuresDues.toFixed(0)} h dépassé
                           </span>
                         )}
-                        <span>{solde.heuresRealisees.toFixed(0)} h réalisées</span>
+                        <span>{base.heuresDues.toFixed(0)} h dues</span>
                       </div>
                       <p className="text-[10px] text-muted mt-3 pt-3 border-t border-black/5">
                         Source : Décret n°2000-815 du 25 août 2000 · Base {HEURES_ANNUELLES} h = 228 j × 7 h + journée solidarité
