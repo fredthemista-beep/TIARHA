@@ -23,9 +23,10 @@ export async function middleware(request: NextRequest) {
   );
 
   const { data: { user } } = await supabase.auth.getUser();
+  const isDemo = request.cookies.get('demo_access')?.value === '1';
 
-  // Redirect unauthenticated users to login
-  if (!user && request.nextUrl.pathname.startsWith('/dashboard')) {
+  // Redirect unauthenticated users to login (demo cookie bypasses)
+  if (!user && !isDemo && request.nextUrl.pathname.startsWith('/dashboard')) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
