@@ -7,7 +7,7 @@ interface TopbarProps {
   notifCount?: number;
 }
 
-export function Topbar({ title, subtitle: _subtitle, plan, notifCount = 0 }: TopbarProps) {
+export function Topbar({ title, plan, notifCount = 0 }: TopbarProps) {
   const planConf = PLAN_CONFIG[plan];
 
   return (
