@@ -4,3 +4,4 @@ export * from './types';
 export * from './arret';
 export * from './retraite';
 export * from './heures';
+export * from './annualisation';
