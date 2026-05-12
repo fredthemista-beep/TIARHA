@@ -2,18 +2,19 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  LayoutGrid, Users, CircleDollarSign, Calendar,
+  LayoutGrid, Users, CircleDollarSign, Calendar, Clock,
   Shield, BarChart3, Settings,
 } from 'lucide-react';
 
 const NAV = [
-  { href: '/dashboard',                        label: 'Tableau de bord', Icon: LayoutGrid },
-  { href: '/dashboard/agents',                 label: 'Agents',           Icon: Users },
-  { href: '/dashboard/simulations/arret',      label: 'SimulArrêt',       Icon: CircleDollarSign },
-  { href: '/dashboard/simulations/retraite',   label: 'RetireSim',        Icon: BarChart3 },
-  { href: '/dashboard/simulations/heures',     label: 'HeuresSup+',       Icon: Calendar },
-  { href: '/dashboard/conformite',             label: 'Conformité',        Icon: Shield },
-  { href: '/dashboard/settings',               label: 'Paramètres',        Icon: Settings },
+  { href: '/dashboard',                              label: 'Tableau de bord', Icon: LayoutGrid },
+  { href: '/dashboard/agents',                       label: 'Agents',           Icon: Users },
+  { href: '/dashboard/simulations/arret',            label: 'SimulArrêt',       Icon: CircleDollarSign },
+  { href: '/dashboard/simulations/retraite',         label: 'RetireSim',        Icon: BarChart3 },
+  { href: '/dashboard/simulations/heures',           label: 'HeuresSup+',       Icon: Calendar },
+  { href: '/dashboard/simulations/annualisation',    label: 'AnnualisationRH',  Icon: Clock },
+  { href: '/dashboard/conformite',                   label: 'Conformité',        Icon: Shield },
+  { href: '/dashboard/settings',                     label: 'Paramètres',        Icon: Settings },
 ] as const;
 
 export function Sidebar() {
