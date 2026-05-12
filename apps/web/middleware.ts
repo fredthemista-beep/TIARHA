@@ -3,6 +3,18 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
+  // Demo shortcut: set cookie and redirect to dashboard — handled before Supabase
+  if (request.nextUrl.pathname === '/demo') {
+    const response = NextResponse.redirect(new URL('/dashboard', request.url));
+    response.cookies.set('demo_access', '1', {
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 8,
+    });
+    return response;
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
