@@ -137,7 +137,7 @@ describe('calculerSoldeAnnuel — moisSaisis avec heures sup', () => {
     }));
     const r = calculerSoldeAnnuel({ heuresDues: 1607, moisSaisis: mois });
     expect(r.heuresRealisees).toBe(1740);
-    expect(r.heuresSup).toBeCloseTo(133, 2);
+    expect(r.heuresSup).toBe(133);
     expect(r.heuresDeficit).toBe(0);
     expect(r.progression).toBeGreaterThan(1.0);
   });
@@ -203,5 +203,6 @@ describe('calculerSoldeAnnuel — alertes légales', () => {
     const r = calculerSoldeAnnuel({ heuresDues: 1607 });
     const alerte = r.alertesLegales.find(a => a.type === 'SEMAINE_MOYENNE_MAX')!;
     expect(alerte.depasse).toBe(false);
+    expect(alerte.valeurEstimee).toBeNull();
   });
 });

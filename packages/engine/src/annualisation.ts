@@ -66,10 +66,10 @@ function calculerAlertes(heuresRealisees: number, moisSaisisCount: number): Aler
     {
       type: 'SEMAINE_MOYENNE_MAX',
       seuil: 44,
-      valeurEstimee: moyenneAnnuelle,
+      valeurEstimee: heuresRealisees > 0 ? moyenneAnnuelle : null,
       depasse: heuresRealisees > 0 && moyenneAnnuelle > 44,
       message: heuresRealisees > 0
-        ? `Moyenne annuelle estimée : ${moyenneAnnuelle.toFixed(1)} h/semaine (max légal : 44 h sur 12 semaines)`
+        ? `Moyenne annuelle estimée : ${moyenneAnnuelle.toFixed(1)} h/semaine (indicatif — la règle légale porte sur toute période de 12 semaines consécutives)`
         : 'Aucune heure saisie',
     },
     {
@@ -82,6 +82,11 @@ function calculerAlertes(heuresRealisees: number, moisSaisisCount: number): Aler
   ];
 }
 
+/**
+ * Calcule le solde annuel d'heures travaillées.
+ * Précondition : `moisSaisis` ne doit pas contenir deux entrées avec le même `mois`.
+ * En cas de doublons, le résultat et les alertes seront incorrects.
+ */
 export function calculerSoldeAnnuel(params: ParamsSoldeAnnuel): ResultatSoldeAnnuel {
   const { heuresDues, moisSaisis = [], heuresTotalesManuelle } = params;
 
