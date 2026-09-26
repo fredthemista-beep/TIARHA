@@ -23,15 +23,27 @@ export async function middleware(request: NextRequest) {
   );
 
   const { data: { user } } = await supabase.auth.getUser();
+  const demoMode = process.env.NEXT_PUBLIC_TIARHA_DEMO_MODE === 'true';
+  const isPublicRoute =
+    request.nextUrl.pathname === '/login' ||
+    request.nextUrl.pathname === '/callback';
 
-  // Auth guard disabled for demo — re-enable before production launch
-  // if (!user && request.nextUrl.pathname.startsWith('/dashboard')) {
-  //   return NextResponse.redirect(new URL('/login', request.url));
-  // }
+  // Production is private by default. A public demonstration must be enabled
+  // explicitly in the deployment environment.
+  if (!demoMode && !user && !isPublicRoute) {
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set(
+      'next',
+      `${request.nextUrl.pathname}${request.nextUrl.search}`
+    );
+    return NextResponse.redirect(loginUrl);
+  }
 
   // Redirect authenticated users away from login
   if (user && request.nextUrl.pathname === '/login') {
-    return NextResponse.redirect(new URL('/', request.url));
+    const next = request.nextUrl.searchParams.get('next');
+    const destination = next?.startsWith('/') && !next.startsWith('//') ? next : '/';
+    return NextResponse.redirect(new URL(destination, request.url));
   }
 
   return response;

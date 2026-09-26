@@ -1,5 +1,19 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Modes d’accès
+
+L’application est privée par défaut : sans session Supabase, les routes métier
+redirigent vers `/login`.
+
+Pour un déploiement de démonstration contenant uniquement des données fictives,
+définir explicitement :
+
+```bash
+NEXT_PUBLIC_TIARHA_DEMO_MODE=true
+```
+
+Ne jamais activer ce mode sur un environnement contenant des données réelles.
+
 ## Getting Started
 
 First, run the development server:

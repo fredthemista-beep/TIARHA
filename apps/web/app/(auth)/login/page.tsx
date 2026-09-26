@@ -9,16 +9,27 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    setError('');
     const supabase = createClient();
-    await supabase.auth.signInWithOtp({
+    const next = new URLSearchParams(window.location.search).get('next');
+    const callbackUrl = new URL('/callback', window.location.origin);
+    if (next?.startsWith('/') && !next.startsWith('//')) {
+      callbackUrl.searchParams.set('next', next);
+    }
+    const { error: loginError } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      options: { emailRedirectTo: callbackUrl.toString() },
     });
-    setSent(true);
+    if (loginError) {
+      setError('Le lien de connexion n’a pas pu être envoyé. Réessayez dans quelques instants.');
+    } else {
+      setSent(true);
+    }
     setLoading(false);
   }
 
@@ -65,18 +76,18 @@ export default function LoginPage() {
             <Button type="submit" disabled={loading} className="bg-primary hover:bg-primary/90 text-white">
               {loading ? 'Envoi en cours...' : 'Recevoir le lien de connexion'}
             </Button>
+            {error && <p role="alert" className="text-xs text-red-700">{error}</p>}
           </form>
         )}
 
-        <div className="mt-6 pt-4 border-t border-black/5 text-center">
-          <p className="text-[10px] text-muted mb-2">Accès sans compte</p>
-          <a
-            href="/"
-            className="inline-block w-full text-center text-xs font-medium text-navy border border-navy/20 rounded-lg py-2 hover:bg-navy/5 transition-colors"
-          >
-            Voir la démo
-          </a>
-        </div>
+        {process.env.NEXT_PUBLIC_TIARHA_DEMO_MODE === 'true' && (
+          <div className="mt-6 pt-4 border-t border-black/5 text-center">
+            <p className="text-[10px] text-muted mb-2">Accès sans compte</p>
+            <a href="/" className="inline-block w-full text-center text-xs font-medium text-navy border border-navy/20 rounded-lg py-2 hover:bg-navy/5 transition-colors">
+              Voir la démo
+            </a>
+          </div>
+        )}
       </div>
     </div>
   );
