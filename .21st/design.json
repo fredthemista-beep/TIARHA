@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "project": {
+    "name": "territorialrh-store",
+    "productType": "Bureau RH territorial SaaS",
+    "stack": ["Next.js 14", "React 18", "Tailwind CSS", "shadcn/Base UI", "lucide-react"]
+  },
+  "sources": {
+    "tokens": [],
+    "components": [],
+    "assets": [],
+    "instructions": []
+  },
+  "design": {
+    "colorMode": "light with dark navigation",
+    "colors": {
+      "navy": "#10223F",
+      "navyDeep": "#0A172C",
+      "actionBlue": "#3974D8",
+      "coral": "#E66C5C",
+      "mint": "#57A88A",
+      "page": "#F1F5F7",
+      "surface": "#FFFFFF"
+    },
+    "typography": { "ui": "Geist", "mono": "Geist Mono" },
+    "spacing": { "base": "8px", "page": "24-44px responsive" },
+    "radius": { "controls": "8-12px", "cards": "14-20px" },
+    "shadows": { "cards": "subtle navy-tinted shadow" },
+    "motion": {},
+    "density": "comfortable operational dashboard"
+  },
+  "components": {
+    "installed": [],
+    "preferredPrimitives": [],
+    "patterns": []
+  },
+  "constraints": {
+    "must": [
+      "Keep French public-sector HR terminology and legal trust signals",
+      "Remain usable from 360px mobile to large desktop",
+      "Use coral only for attention and primary emphasis"
+    ],
+    "avoid": [
+      "Decorative gradients",
+      "Emoji as navigation icons",
+      "Dense grids without a clear daily priority"
+    ]
+  },
+  "decisions": [
+    {
+      "date": "2026-09-27",
+      "decision": "Adopt a dark institutional navigation rail, light workspace, rounded operational cards, restrained coral accent, and priority rail inspired by the four supplied SaaS references.",
+      "reason": "The user explicitly selected these references for a full UI/UX redesign."
+    }
+  ],
+  "evidence": ["User-provided SaaS dashboard references", "Existing TIARHA HR routes and legal copy", "21st search results for responsive SaaS sidebars and KPI dashboards"],
+  "generatedAt": "2026-09-27T00:17:27.372Z"
+}

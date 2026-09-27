@@ -3,31 +3,31 @@
 // Light-mode override for institutional FPT audience
 
 export const colors = {
-  primary:   '#107fb7',    // TIARH blue (dashboard primary #0C5CAB adapted)
-  accent:    '#c76060',    // TIARH coral
-  navy:      '#1a1a2e',    // sidebar / dark panels
-  midBlue:   '#496ba2',
+  primary:   '#3974D8',    // action blue
+  accent:    '#E66C5C',    // alert / emphasis coral
+  navy:      '#10223F',    // sidebar / dark panels
+  midBlue:   '#315D91',
   surface:   '#ffffff',    // cards (light-mode, overrides dark dashboard surface)
-  pageBg:    '#efecec',    // page background
-  text:      '#1a1a2e',
-  textMuted: '#6b7280',
-  success:   '#10b981',    // from typeui.sh dashboard
+  pageBg:    '#F1F5F7',    // page background
+  text:      '#122033',
+  textMuted: '#7D8C99',
+  success:   '#57A88A',
   warning:   '#f59e0b',    // from typeui.sh dashboard
   danger:    '#ef4444',    // from typeui.sh dashboard
   border:    'rgba(0,0,0,0.07)',
 } as const;
 
 export const typography = {
-  fontSans: '"IBM Plex Sans", "DM Sans", system-ui, sans-serif', // typeui.sh Dashboard font
-  fontMono: '"IBM Plex Mono", "DM Mono", monospace',
+  fontSans: '"Geist", system-ui, sans-serif',
+  fontMono: '"Geist Mono", ui-monospace, monospace',
   scale: ['0.75rem', '0.875rem', '1rem', '1.25rem', '1.5rem', '2rem'] as const,
 } as const;
 
 export const radius = {
-  sm:  '4px',    // typeui.sh Dashboard sm
-  md:  '8px',    // typeui.sh Dashboard md
-  lg:  '12px',
-  xl:  '16px',
+  sm:  '8px',
+  md:  '14px',
+  lg:  '20px',
+  xl:  '24px',
 } as const;
 
 export const spacing = {
