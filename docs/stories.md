@@ -6,8 +6,15 @@
 > Source : `docs/prd.md` (validé le 30/09/2026). Pas de SaaS cible : le PRD est la spec.
 > Ordre = ordre des dépendances. Phase pilote : aucune offre payante (hors périmètre).
 >
-> Déjà livré hors pipeline, donc absent de cette liste : les simulateurs et le moteur (règles 2026,
-> PR #2), et la démo sans clic mort sur données fictives (lot 2).
+> Livré hors pipeline, donc absent de cette liste :
+> - le moteur et les simulateurs (règles 2026) : **fusionnés sur `main`** (PR #2, commit `aa4f2e2`) ;
+> - la démo sans clic mort sur données fictives (« lot 2 » : `lib/demo-data.ts`, `lib/csv.ts`,
+>   `lib/prefill.ts`, recherche et filtres, pré-remplissage des simulateurs) : **prérequis bloquant**.
+>   Sa PR doit être fusionnée sur `main` avant de lancer `/ks-research` sur la moindre story.
+>
+> Maintenance récurrente, pas une story : la revue annuelle des taux du moteur (CNRACL, IRCANTEC,
+> point d'indice, trimestres), sources datées dans `packages/engine/src/constants.ts`, suivie par un
+> ticket GitHub chaque année.
 
 ---
 
@@ -53,9 +60,10 @@ de décision).
 
 ### Acceptance criteria
 - [ ] L'utilisateur choisit son profil (Assistante RH, Gestionnaire RH, DRH). Le choix est mémorisé et modifiable depuis la page Assistant.
-- [ ] Pour une même question, la réponse « Assistante » tient en 5 phrases maximum en langage clair.
-- [ ] La réponse « Gestionnaire » liste les conditions d'application et les textes.
-- [ ] La réponse « DRH » présente enjeux, risques et options.
+- [ ] Profil « Assistante » : la réponse tient en 5 phrases maximum, sans titre de section, suivies de la liste des sources.
+- [ ] Profil « Gestionnaire » : la réponse contient les sections « Conditions d'application » et « Textes applicables ».
+- [ ] Profil « DRH » : la réponse contient les sections « Enjeux », « Risques » et « Options ».
+- [ ] Le jeu d'évaluation vérifie cette structure (nombre de phrases, titres de section) pour chaque profil.
 - [ ] Les règles de citation de s01 s'appliquent aux trois profils (le jeu d'évaluation tourne pour chacun).
 
 ### Dependencies
@@ -100,7 +108,8 @@ leur rôle **so that** toute l'équipe travaille sur les mêmes dossiers.
 élévation de rôle.
 
 ### Acceptance criteria
-- [ ] Le propriétaire invite un collègue par e-mail avec un rôle (DRH, gestionnaire, assistante). L'invité rejoint la collectivité par lien magique.
+- [ ] Le créateur de la collectivité en devient membre avec le rôle DRH.
+- [ ] Un DRH invite un collègue par e-mail avec un rôle (DRH, gestionnaire, assistante). L'invité rejoint la collectivité par lien magique.
 - [ ] Un membre voit les données de sa collectivité et d'aucune autre (test RLS avec deux collectivités).
 - [ ] Seul un DRH peut inviter, changer un rôle ou retirer un membre (test d'autorisation par rôle).
 - [ ] Un membre retiré perd l'accès à sa prochaine requête.
@@ -124,22 +133,26 @@ enregistrés dans TIARHA **so that** je travaille sur mes vrais dossiers et non 
 3
 
 ### Acceptance criteria
-- [ ] Connecté, la liste des agents lit la table `agents` de ma collectivité. Recherche et filtres fonctionnent comme en démo.
+- [ ] Connecté, la liste des agents lit la table `agents` de ma collectivité. La recherche (nom, prénom, matricule, grade), les filtres Service et Catégorie et les onglets Tous / Titulaires / Contractuels filtrent ces données.
+- [ ] La fiche affiche grade, service, statut, catégorie, indice majoré, date de naissance, trimestres validés, solde CET et quotité.
+- [ ] Depuis la fiche d'un agent réel, les quatre simulateurs (arrêt, heures, retraite, annualisation) s'ouvrent pré-remplis avec ses données.
+- [ ] « Exporter CSV » sur la liste exporte les agents réels affichés (filtres appliqués).
 - [ ] En mode démo (non connecté), les données fictives du lot 2 restent affichées.
 - [ ] Un utilisateur d'une autre collectivité n'obtient jamais un agent qui n'est pas le sien, même en forçant l'identifiant dans l'URL (réponse 404).
-- [ ] Une collectivité sans agent voit un état vide qui mène à l'import (s06).
+- [ ] Une collectivité sans agent voit un état vide avec le message « Aucun agent pour l'instant ».
 
 ### Dependencies
 s04-equipe-rh (politiques RLS par membre).
 
 ### Agentic notes
 - La table `agents` existe (`001_initial.sql`). Il lui manque des colonnes de la fiche démo (grade, service, trimestres, CET, quotité) : c'est une migration, donc la voie `full`.
+- Réutiliser `lib/csv.ts` et `lib/prefill.ts` du lot 2.
 - Lecture côté serveur avec `lib/supabase/server.ts`.
 
 ---
 
 ## Story s06-import-agents — Importer ses agents depuis un fichier
-**As a** secrétaire de mairie **I want** importer la liste de mes agents depuis un fichier CSV ou Excel
+**As a** gestionnaire RH ou DRH **I want** importer la liste de mes agents depuis un fichier CSV ou Excel
 **so that** je démarre sans ressaisie.
 
 ### Complexity
@@ -148,12 +161,15 @@ s04-equipe-rh (politiques RLS par membre).
 ### Acceptance criteria
 - [ ] Je dépose un fichier CSV (séparateur `;` ou `,`) ou XLSX ; un aperçu affiche les lignes reconnues et les erreurs, ligne par ligne.
 - [ ] Une ligne invalide (IM absent, catégorie inconnue, date impossible) est signalée et non importée. Les lignes valides le sont.
-- [ ] Réimporter le même fichier ne crée pas de doublon (clé : matricule).
+- [ ] Le matricule est obligatoire à l'import. Réimporter le même fichier ne crée pas de doublon (clé : matricule, unique par collectivité).
+- [ ] Les colonnes couvrent tous les champs de la fiche (s05), dont date de naissance, trimestres, solde CET et quotité.
 - [ ] Un modèle de fichier téléchargeable décrit les colonnes attendues.
 - [ ] L'import est rattaché à ma collectivité uniquement.
+- [ ] Seuls les rôles DRH et gestionnaire peuvent importer ; une assistante RH ne voit pas le bouton et l'appel serveur lui est refusé.
+- [ ] L'état vide de la liste des agents (s05) propose « Importer mes agents ».
 
 ### Dependencies
-s05-agents-reels.
+s05-agents-reels, s04-equipe-rh.
 
 ### Agentic notes
 - Lire un fichier XLSX demande probablement une nouvelle dépendance : c'est une décision d'architecture et la voie `full`.
@@ -171,14 +187,17 @@ jour sans réimporter.
 ### Acceptance criteria
 - [ ] « Nouvel agent » ouvre un formulaire. Une saisie valide crée l'agent et ouvre sa fiche ; une saisie invalide affiche les erreurs par champ et ne crée rien.
 - [ ] « Modifier » sur la fiche enregistre les changements.
+- [ ] Tous les champs de la fiche (s05) sont modifiables, dont trimestres, solde CET et quotité.
+- [ ] Le matricule est obligatoire et unique dans la collectivité ; un doublon est refusé avec un message.
 - [ ] Le traitement brut est recalculé depuis l'indice majoré avec le point d'indice du moteur.
-- [ ] Une assistante RH peut consulter mais pas modifier (règle de rôle de s04).
+- [ ] Une assistante RH peut consulter mais pas modifier (règle de rôle de s04), côté écran comme côté serveur.
 
 ### Dependencies
 s05-agents-reels, s04-equipe-rh.
 
 ### Agentic notes
 - Valider côté serveur ; ne jamais faire confiance au client pour `collectivite_id`.
+- Voie `full` malgré le score 2 : la story porte une règle d'autorisation.
 
 ---
 
@@ -195,14 +214,16 @@ l'agent passe à demi-traitement.
 - [ ] La fiche et la page Absences affichent l'arrêt avec sa phase (90 % / demi-traitement…) et son coût, calculés par `calculerArret` avec le statut de l'agent.
 - [ ] Les jours déjà pris sur les 12 derniers mois sont comptés pour déterminer la phase d'un nouveau CMO.
 - [ ] Une date de fin antérieure à la date de début est refusée.
-- [ ] Les données de santé ne sont lisibles que par les membres de la collectivité (test RLS).
+- [ ] Seuls les rôles DRH et gestionnaire saisissent ou modifient un arrêt. L'assistante RH voit les arrêts en lecture seule (écran et serveur).
+- [ ] Les arrêts ne sont lisibles que par les membres de la collectivité (test RLS) ; seul le type de congé est stocké, jamais un motif médical.
+- [ ] « Exporter CSV » sur la page Absences exporte les arrêts réels affichés.
 
 ### Dependencies
-s05-agents-reels.
+s05-agents-reels, s04-equipe-rh.
 
 ### Agentic notes
 - Nouvelle table d'absences : migration, voie `full`. Ne stocker ni diagnostic ni motif médical, seulement le type de congé.
-- Piège : la règle des 12 mois glissants pour le CMO.
+- Piège : la règle des 12 mois glissants pour le CMO. La calculer dans une fonction du moteur (`packages/engine`), testée, que s09 réutilise.
 
 ---
 
@@ -225,3 +246,5 @@ s08-saisie-arret, s05-agents-reels.
 
 ### Agentic notes
 - Alertes calculées à la lecture (pas de tâche planifiée en v1) avec les fonctions du moteur.
+- Réutiliser la fonction « jours de CMO sur 12 mois glissants » créée par s08 ; ne pas la réécrire.
+- Le solde CET et la date de naissance sont garantis par s05, s06 et s07.
