@@ -3,6 +3,10 @@
 export type StatutAgent = 'TITULAIRE' | 'CONTRACTUEL';
 export type CategorieAgent = 'A' | 'B' | 'C';
 export type TypeConge = 'CMO' | 'CLM' | 'CLD' | 'AT' | 'CITIS';
+export type RegimeRetraite = 'CNRACL' | 'IRCANTEC';
+export type ZoneResidence = 1 | 2 | 3;
+export type MajorationHeures = 'standard' | 'nuit' | 'dimancheFerie';
+export type AffectationHeures = 'IHTS' | 'CET' | 'recuperation';
 
 export interface AgentBase {
   indiceMajore: number;         // IM brut
@@ -14,30 +18,40 @@ export interface AgentBase {
 export interface ResultatArret {
   type: TypeConge;
   dureeJours: number;
+  statut: StatutAgent;
   maintienTraitement: number;   // € total maintenu par l'employeur
-  coutEmployeur: number;        // maintien + charges patronales CNRACL
-  coutCNRACL: number;           // part CNRACL employeur sur la période
+  coutEmployeur: number;        // maintien + cotisation retraite employeur
+  regimeRetraite: RegimeRetraite; // CNRACL (titulaire) ou IRCANTEC (contractuel)
+  cotisationRetraiteEmployeur: number; // part employeur retraite sur la période
   tauxMaintien: number;         // 0.0–1.0 (fraction du traitement maintenu)
 }
 
 /** Résultat d'une simulation de retraite CNRACL */
 export interface ResultatRetraite {
   pensionBrute: number;         // € mensuel
-  tauxLiquidation: number;      // 0.0–0.75
+  tauxLiquidation: number;      // 75 % × trimestres liquidables / requis (0.0–0.75)
+  tauxEffectif: number;         // taux après décote / surcote — pension = traitement × tauxEffectif
   trimestresValides: number;
   trimestresRequisTauxPlein: number;
-  decote: number;               // % appliqué si < taux plein (0.0 si taux plein)
-  surcote: number;              // % appliqué si > taux plein
+  trimestresDecote: number;     // trimestres retenus pour la décote (≤ 20)
+  decote: number;               // coefficient de minoration (0.0 si aucune)
+  surcote: number;              // coefficient de majoration (0.0 si aucune)
+  ageDepart: number;            // âge en années révolues l'année du départ
+  ageLegal: number;             // âge légal de la génération (ex : 62.75)
+  departAvantAgeLegal: boolean;
   anneeeDepart: number;
 }
 
 /** Résultat d'une simulation heures supplémentaires / CET */
 export interface ResultatHeures {
-  ihtsParHeure: number;         // € brut par heure sup
-  ihtsTotal: number;            // € brut total
-  coutEmployeurTotal: number;   // IHTS + charges
+  ihtsParHeure: number;         // € brut — taux horaire de base (avant coefficient)
+  ihtsTotal: number;            // € brut total versé (0 si CET ou récupération)
+  coutEmployeurTotal: number;   // IHTS + RAFP employeur
+  heuresRemunerables: number;   // heures retenues après plafond mensuel (25 h)
+  plafondMensuelDepasse: boolean;
   joursCET: number;             // jours à créditer au CET
   cetPlafondAtteint: boolean;
+  heuresRecuperation: number;   // heures à rendre en repos compensateur
 }
 
 // --- Annualisation ---

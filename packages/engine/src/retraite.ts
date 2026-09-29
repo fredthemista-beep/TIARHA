@@ -1,49 +1,84 @@
 // packages/engine/src/retraite.ts
-import { POINT_INDICE, TRIMESTRES_RETRAITE_1965 } from './constants';
+import { POINT_INDICE, TRIMESTRES_RETRAITE_1965, AGE_ANNULATION_DECOTE, AGE_DEPART_RETRAITE } from './constants';
 import type { ResultatRetraite } from './types';
 
 interface ParamsRetraite {
   indiceMajore: number;
-  trimestresValides: number;
+  trimestresValides: number;   // retenus à la fois comme liquidables et comme durée d'assurance
   anneeNaissance: number;
   anneeDepart: number;
 }
 
+const TAUX_PAR_TRIMESTRE = 0.0125;
+const DECOTE_MAX_TRIMESTRES = 20;
+
 /**
- * Détermine le nombre de trimestres requis pour le taux plein selon l'année de naissance.
- * Source : Loi n°2023-270 du 14 avril 2023.
+ * Trimestres requis pour le taux plein selon l'année de naissance.
+ * Source : loi n°2023-270 du 14 avril 2023, modifiée par la LFSS 2026 (suspension au 01/09/2026).
+ * Granularité annuelle : 1961 retient 168 (janv.–août), 1965 retient 171 (avril–déc.).
  */
-function trimestresRequisTauxPlein(anneeNaissance: number): number {
-  if (anneeNaissance >= 1965) return TRIMESTRES_RETRAITE_1965;
-  if (anneeNaissance >= 1961) return 167 + (anneeNaissance - 1961);
-  return 166; // né avant 1961
+export function trimestresRequisTauxPlein(anneeNaissance: number): number {
+  if (anneeNaissance >= 1966) return TRIMESTRES_RETRAITE_1965;
+  if (anneeNaissance === 1965) return 171;
+  if (anneeNaissance >= 1963) return 170;
+  if (anneeNaissance === 1962) return 169;
+  if (anneeNaissance === 1961) return 168;
+  if (anneeNaissance >= 1958) return 167;
+  return 166;
 }
 
+/**
+ * Âge légal d'ouverture des droits (catégorie sédentaire), en années décimales.
+ * Même source et même granularité que trimestresRequisTauxPlein.
+ */
+export function ageLegalDepart(anneeNaissance: number): number {
+  if (anneeNaissance >= 1969) return AGE_DEPART_RETRAITE;
+  if (anneeNaissance >= 1965) return 63 + (anneeNaissance - 1965) * 0.25;
+  if (anneeNaissance >= 1963) return 62.75;
+  if (anneeNaissance === 1962) return 62.5;
+  return 62;
+}
+
+/**
+ * Pension CNRACL = traitement indiciaire × 75 % × (trimestres liquidables / requis)
+ *                  × (1 − décote) × (1 + surcote).
+ * Décote : 1,25 % par trimestre manquant, retenu au plus favorable entre la durée d'assurance
+ * et l'âge d'annulation (67 ans), dans la limite de 20 trimestres.
+ * Surcote : 1,25 % par trimestre au-delà de la durée requise, accompli après l'âge légal.
+ */
 export function calculerRetraite(params: ParamsRetraite): ResultatRetraite {
   const { indiceMajore, trimestresValides, anneeNaissance, anneeDepart } = params;
 
-  const trimRequisTauxPlein = trimestresRequisTauxPlein(anneeNaissance);
-  const trimManquants = Math.max(0, trimRequisTauxPlein - trimestresValides);
-  const trimExces = Math.max(0, trimestresValides - trimRequisTauxPlein);
+  const trimRequis = trimestresRequisTauxPlein(anneeNaissance);
+  const ageDepart = anneeDepart - anneeNaissance;
+  const ageLegal = ageLegalDepart(anneeNaissance);
 
-  // Décote : 1.25% par trimestre manquant, plafonné à 25%
-  const decote = Math.min(trimManquants * 0.0125, 0.25);
+  const tauxLiquidation = 0.75 * (Math.min(trimestresValides, trimRequis) / trimRequis);
 
-  // Surcote : 1.25% par trimestre au-delà du taux plein
-  const surcote = trimExces * 0.0125;
+  const manquantsDuree = Math.max(0, trimRequis - trimestresValides);
+  const manquantsAge = Math.max(0, (AGE_ANNULATION_DECOTE - ageDepart) * 4);
+  const trimestresDecote = Math.min(manquantsDuree, manquantsAge, DECOTE_MAX_TRIMESTRES);
+  const decote = trimestresDecote * TAUX_PAR_TRIMESTRE;
 
-  const tauxLiquidation = Math.min(0.75 * (1 - decote) + surcote, 0.75 + surcote);
+  const trimestresApresAgeLegal = Math.max(0, Math.floor((ageDepart - ageLegal) * 4));
+  const trimestresSurcote = Math.min(Math.max(0, trimestresValides - trimRequis), trimestresApresAgeLegal);
+  const surcote = trimestresSurcote * TAUX_PAR_TRIMESTRE;
 
-  // Pension = IM × valeur point × taux liquidation
-  const pensionBrute = indiceMajore * POINT_INDICE * tauxLiquidation;
+  const tauxEffectif = tauxLiquidation * (1 - decote) * (1 + surcote);
+  const pensionBrute = indiceMajore * POINT_INDICE * tauxEffectif;
 
   return {
     pensionBrute,
     tauxLiquidation,
+    tauxEffectif,
     trimestresValides,
-    trimestresRequisTauxPlein: trimRequisTauxPlein,
+    trimestresRequisTauxPlein: trimRequis,
+    trimestresDecote,
     decote,
     surcote,
+    ageDepart,
+    ageLegal,
+    departAvantAgeLegal: ageDepart < ageLegal,
     anneeeDepart: anneeDepart,
   };
 }
