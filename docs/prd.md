@@ -1,26 +1,27 @@
 # PRD — TIARHA
 
-> Statut : **brouillon à valider**. Les sections marquées ✅ reprennent des réponses validées par
-> Fred. Les sections marquées 🟡 sont des propositions à confirmer avant `/ks-stories`.
+> Statut : **validé par Fred le 30/09/2026**, avec une réserve : les offres payantes restent
+> désactivées pendant la phase pilote.
 
 ## Target SaaS ✅
 Aucune. TIARHA est un produit original : il n'existe pas de SaaS de référence à répliquer. Le
 périmètre ci-dessous sert donc de spec à la place de la cible.
 
 ## Kill mode ✅
-**Produit concurrent (vendu).** TIARHA est vendu aux collectivités sur abonnement Stripe (grilles
-Starter / Pro déjà présentes dans `packages/ui`). Conséquences sur le périmètre :
+**Produit concurrent (vendu à terme).** TIARHA sera vendu aux collectivités sur abonnement (grilles
+Starter / Pro déjà présentes dans `packages/ui`). **Pendant la phase pilote, aucune offre payante
+n'est activée** : les communes pilotes ont accès à tout. Conséquences sur le périmètre :
 - Multi-tenant strict : une collectivité ne voit jamais les données d'une autre (RLS Supabase).
 - Conformité RGPD dès la conception : les arrêts maladie sont des données de santé (art. 9).
 - La fiabilité réglementaire est l'argument de vente. Un chiffre faux fait perdre un client.
 
-## Why kill it 🟡
+## Why kill it ✅
 Il n'y a pas de SaaS à tuer. Le coût évité, pour une petite commune, est le suivant :
 - un abonnement à une documentation RH (WEKA, Territorial, La Gazette) ;
 - le temps passé à interroger le centre de gestion ;
 - les erreurs de calcul faites à la main (IHTS, maintien de traitement, retraite).
 
-## Problem 🟡
+## Problem ✅
 Une petite commune n'a ni juriste RH ni DRH. La secrétaire de mairie ou l'assistante RH doit
 appliquer seule un statut de la fonction publique territoriale qui change chaque année (CMO à 90 %
 en 2025, taux CNRACL relevé chaque année, suspension de la réforme des retraites en 2026). Elle a
@@ -38,7 +39,7 @@ le produit, et chacun a son assistant IA :
 | DRH / DGS | Pilotage, arbitrage, élus | Une synthèse argumentée, les risques et les options |
 
 ## Perimeter — the 20% that matters
-### Replicated (core loop) ✅ (scores 🟡)
+### Replicated (core loop) ✅ (scores ✅)
 | Feature | Complexity (1-5) | Why this score |
 |---|---|---|
 | Simulateurs réglementaires (arrêts, IHTS/CET, retraite, annualisation) | 3 | Déjà construits. Il reste la maintenance réglementaire annuelle et le branchement aux vrais dossiers |
@@ -47,19 +48,20 @@ le produit, et chacun a son assistant IA :
 | Suivi des absences et alertes (phases CMO, plafond CET) | 3 | Règles métier sur plusieurs états, réutilise le moteur |
 | Import des agents (CSV/XLSX) et export CSV | 2 | Mise en service d'une commune sans ressaisie |
 | Auth par lien magique et isolation par collectivité | 3 | Déjà en place (migration `secure_tenant_access`) ; reste à la brancher sur toutes les données |
-| Abonnement Stripe (Starter / Pro) | 4 | Paiement, webhooks et droits par plan. Nécessaire pour vendre |
 
-### Explicitly NOT replicated (graveyard) 🟡
+### Explicitly NOT replicated (graveyard) ✅
 - Paie complète, bulletins, DSN, mandatement (complexité 5, métier d'éditeurs spécialisés)
 - GED et archivage légal des dossiers agents
 - Recrutement, formation, entretiens professionnels
 - Portail agent en libre-service
 - Multi-collectivités pour les centres de gestion (reporté après les premières communes)
+- Abonnements payants Stripe (reporté après la phase pilote : la grille reste affichée à titre
+  d'information, sans achat possible)
 - Intégrations avec les SIRH (BL.RH, Civil RH, Astre) au-delà de l'import CSV/XLSX
 - Signature électronique et envoi automatique des actes
 - Assistant IA qui agit seul (saisie, envoi) : en v1, il répond et il cite ; un humain agit
 
-### The angle (done differently / better) 🟡
+### The angle (done differently / better) ✅
 - **Une réponse sourcée ou pas de réponse.** Chaque affirmation de l'assistant cite un article
   vérifiable sur Légifrance. Sans source, il le dit au lieu d'inventer.
 - **Le calcul prouve la réponse.** L'assistant s'appuie sur le moteur TIARHA testé (64 tests, règles
@@ -67,7 +69,7 @@ le produit, et chacun a son assistant IA :
 - **Trois registres de langage** selon le profil (assistante, gestionnaire, DRH).
 - **Conçu pour une commune sans juriste** : prix d'entrée bas, mise en route en une heure.
 
-## Constraints ✅ / 🟡
+## Constraints ✅ / ✅
 - **Données** ✅ : l'assistant IA v1 travaille uniquement sur les **données fictives de démo**.
   L'accès aux données nominatives réelles attend une analyse d'impact (AIPD), un contrat de sous-traitance
   RGPD avec le fournisseur du modèle et un traitement hébergé dans l'UE.
@@ -79,7 +81,7 @@ le produit, et chacun a son assistant IA :
 - **Équipe** : un fondateur solo, assisté d'agents IA, pipeline killer-saas avec validation humaine
   de chaque plan.
 
-## Success criteria 🟡
+## Success criteria ✅
 - Les 4 simulateurs donnent des résultats identiques aux barèmes officiels 2026 sur un jeu de cas
   de référence (tests du moteur au vert).
 - Sur 30 questions statutaires de référence, l'assistant IA :
@@ -88,4 +90,4 @@ le produit, et chacun a son assistant IA :
   - répond « je ne sais pas » plutôt que sans source.
 - Une petite commune importe ses agents et obtient son premier calcul en moins d'une heure.
 - Zéro fuite de données entre collectivités (tests RLS au vert).
-- Un premier abonnement payant signé.
+- Trois communes pilotes utilisent TIARHA chaque semaine pendant un mois.
