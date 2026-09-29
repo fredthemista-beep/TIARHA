@@ -1,6 +1,8 @@
 'use client';
 import { useState } from 'react';
-import { calculerRetraite, POINT_INDICE, TRIMESTRES_RETRAITE_1965 } from '@tiarh/engine';
+import {
+  calculerRetraite, trimestresRequisTauxPlein, ageLegalDepart, POINT_INDICE, ENGINE_VERSION,
+} from '@tiarh/engine';
 import { Topbar } from '@/components/dashboard/Topbar';
 
 const IM_OPTIONS = [
@@ -10,6 +12,36 @@ const IM_OPTIONS = [
   { value: 600, label: 'IM 600 — Cat. A' },
   { value: 700, label: 'IM 700 — Cat. A sup.' },
   { value: 800, label: 'IM 800 — Hors-classe' },
+];
+
+/** 62.75 → « 62 ans 9 mois » */
+function fmtAge(age: number) {
+  const ans = Math.floor(age);
+  const mois = Math.round((age - ans) * 12);
+  return mois > 0 ? `${ans} ans ${mois} mois` : `${ans} ans`;
+}
+
+function pct(n: number) {
+  return (n * 100).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' %';
+}
+
+/** Exemples du barème : génération 1966, départ à 64 ans. */
+const EXEMPLES = [120, 140, 155, 165, 172, 180].map(t => ({
+  t,
+  r: calculerRetraite({ indiceMajore: 500, trimestresValides: t, anneeNaissance: 1966, anneeDepart: 2030 }),
+}));
+
+const GENERATIONS = [
+  { gen: 'Né avant 1958',     annee: 1957 },
+  { gen: 'Né en 1958–1960',   annee: 1960 },
+  { gen: 'Né en 1961 (janv.–août)', annee: 1961 },
+  { gen: 'Né en 1962',        annee: 1962 },
+  { gen: 'Né en 1963',        annee: 1963 },
+  { gen: 'Né en 1964',        annee: 1964 },
+  { gen: 'Né en 1965 (avr.–déc.)', annee: 1965 },
+  { gen: 'Né en 1966',        annee: 1966 },
+  { gen: 'Né en 1967',        annee: 1967 },
+  { gen: 'Né en 1968',        annee: 1968 },
 ];
 
 function fmt(n: number, suffix = ' €/mois') {
@@ -67,6 +99,8 @@ export default function RetireSimPage() {
   const trimestres = Number(form.trimestresValides);
   const hasDecote  = result && result.decote > 0;
   const hasSurcote = result && result.surcote > 0;
+  const anneeNaissance = Number(form.anneeNaissance);
+  const trimRequis = trimestresRequisTauxPlein(anneeNaissance);
 
   return (
     <>
@@ -79,7 +113,7 @@ export default function RetireSimPage() {
             <div className="page-subtitle">
               <span className="legal-tag">CNRACL</span>
               <span className="legal-tag">Loi 2023-270</span>
-              Simulation pension retraite — Réforme 2023 ({TRIMESTRES_RETRAITE_1965} trimestres)
+              Simulation pension retraite — Réforme 2023, suspendue au 01/09/2026 (LFSS 2026)
             </div>
           </div>
           <div className="btn-row">
@@ -104,16 +138,16 @@ export default function RetireSimPage() {
             <div className="kpi-meta">Mensuelle brute</div>
           </div>
           <div className="kpi-card indigo">
-            <div className="kpi-label">Taux liquidation</div>
+            <div className="kpi-label">Taux effectif</div>
             <div className="kpi-value large indigo">
-              {result ? (result.tauxLiquidation * 100).toFixed(1) + ' %' : '—'}
+              {result ? (result.tauxEffectif * 100).toFixed(1) + ' %' : '—'}
             </div>
-            <div className="kpi-meta">Taux appliqué</div>
+            <div className="kpi-meta">Après prorata, décote et surcote</div>
           </div>
           <div className="kpi-card teal">
             <div className="kpi-label">Trimestres validés</div>
             <div className="kpi-value large teal">{form.trimestresValides} T</div>
-            <div className="kpi-meta">Sur {TRIMESTRES_RETRAITE_1965} requis</div>
+            <div className="kpi-meta">Sur {trimRequis} requis (génération {form.anneeNaissance})</div>
           </div>
           <div className={`kpi-card ${hasDecote ? 'danger' : 'amber'}`}>
             <div className="kpi-label">Décote</div>
@@ -175,7 +209,7 @@ export default function RetireSimPage() {
                   </span>
                 </div>
                 <div className="slider-row">
-                  <input type="range" min={1} max={172} className="form-range"
+                  <input type="range" min={1} max={190} className="form-range"
                     value={form.trimestresValides}
                     onChange={e => set('trimestresValides', e.target.value)} />
                   <span className="slider-value">{form.trimestresValides} T</span>
@@ -197,8 +231,10 @@ export default function RetireSimPage() {
                 <div>
                   Point d&apos;indice :{' '}
                   <strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--navy)' }}>{POINT_INDICE} €</strong>
-                  {' '}· Trimestres taux plein (1965+) :{' '}
-                  <strong style={{ color: 'var(--navy)' }}>{TRIMESTRES_RETRAITE_1965}</strong>
+                  {' '}· Génération {form.anneeNaissance} :{' '}
+                  <strong style={{ color: 'var(--navy)' }}>{trimRequis} trimestres</strong>
+                  {' '}· âge légal{' '}
+                  <strong style={{ color: 'var(--navy)' }}>{fmtAge(ageLegalDepart(anneeNaissance))}</strong>
                 </div>
               </div>
 
@@ -249,9 +285,9 @@ export default function RetireSimPage() {
                 </div>
               </div>
               <div className="breakdown-cell">
-                <div className="breakdown-cell-label">Taux liquidation</div>
-                <div className="breakdown-cell-value" style={{ color: hasDecote ? 'var(--danger)' : 'var(--success)' }}>
-                  {result ? (result.tauxLiquidation * 100).toFixed(2) + ' %' : '—'}
+                <div className="breakdown-cell-label">Taux de liquidation</div>
+                <div className="breakdown-cell-value" style={{ color: result && result.tauxLiquidation < 0.75 ? 'var(--danger)' : 'var(--success)' }}>
+                  {result ? pct(result.tauxLiquidation) : '—'}
                 </div>
               </div>
               <div className="breakdown-cell">
@@ -295,9 +331,19 @@ export default function RetireSimPage() {
               </div>
             )}
 
+            {result?.departAvantAgeLegal && (
+              <div className="notice-warning">
+                <span>⚠</span>
+                <div>
+                  Départ à {result.ageDepart} ans avant l&apos;âge légal de {fmtAge(result.ageLegal)} :
+                  impossible hors carrière longue, catégorie active ou invalidité.
+                </div>
+              </div>
+            )}
+
             <div className="notice-info">
               <span>ℹ️</span>
-              <div>CNRACL · Loi n°2023-270 du 14/04/2023 · Moteur v1.0.0</div>
+              <div>CNRACL · Loi n°2023-270 · LFSS 2026 · Moteur v{ENGINE_VERSION}</div>
             </div>
           </div>
 
@@ -357,17 +403,17 @@ export default function RetireSimPage() {
                   fontSize: 13, color: 'var(--navy)', lineHeight: 1.8,
                   border: '1px solid var(--border-soft)',
                 }}>
-                  Pension = IM × {POINT_INDICE} € × taux liquidation<br />
-                  Taux liquidation = min(75%, T_validés / T_requis × 75%)<br />
-                  Décote = 1,25 % × trimestres manquants (max 20 %)<br />
-                  Surcote = 1,25 % × trimestres au-delà du taux plein
+                  Pension = IM × {POINT_INDICE} € × taux liquidation × (1 − décote) × (1 + surcote)<br />
+                  Taux liquidation = 75 % × min(T_validés, T_requis) / T_requis<br />
+                  Décote = 1,25 % × min(T manquants, T avant 67 ans, 20)<br />
+                  Surcote = 1,25 % × T au-delà du requis, accomplis après l&apos;âge légal
                 </div>
               </div>
 
               {/* Âge légal */}
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy)', fontFamily: 'var(--font-ui)', marginBottom: 10 }}>
-                  Âge légal de départ (réforme 2023)
+                  Âge légal de départ (réforme 2023, suspension au 01/09/2026)
                 </div>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
@@ -378,13 +424,11 @@ export default function RetireSimPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {[
-                      { gen: 'Né avant 1958',      age: '62 ans',    trim: '166–167 T' },
-                      { gen: 'Né en 1958–1960',    age: '62–63 ans', trim: '167–169 T' },
-                      { gen: 'Né en 1961–1963',    age: '63–64 ans', trim: '169–172 T' },
-                      { gen: 'Né en 1964',         age: '64 ans',    trim: '172 T' },
-                      { gen: 'Né en 1965 et après',age: '64 ans',    trim: '172 T' },
-                    ].map((r, i) => (
+                    {GENERATIONS.map(({ gen, annee }) => ({
+                      gen,
+                      age: fmtAge(ageLegalDepart(annee)),
+                      trim: `${trimestresRequisTauxPlein(annee)} T`,
+                    })).map((r, i) => (
                       <tr key={i} style={{ borderTop: '1px solid var(--border-soft)', background: i % 2 === 0 ? 'transparent' : 'var(--surface-2)' }}>
                         <td style={{ padding: '7px 10px', fontSize: 12, color: 'var(--text-secondary)' }}>{r.gen}</td>
                         <td style={{ padding: '7px 10px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, color: 'var(--navy)' }}>{r.age}</td>
@@ -398,25 +442,22 @@ export default function RetireSimPage() {
               {/* Taux de liquidation */}
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy)', fontFamily: 'var(--font-ui)', marginBottom: 10 }}>
-                  Exemples de taux de liquidation
+                  Exemples — génération 1966, départ à 64 ans
                 </div>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ background: 'var(--surface-2)' }}>
                       <th style={{ padding: '7px 10px', textAlign: 'left', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>Trimestres validés</th>
-                      <th style={{ padding: '7px 10px', textAlign: 'center', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>Taux liquidation</th>
-                      <th style={{ padding: '7px 10px', textAlign: 'center', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>Décote</th>
+                      <th style={{ padding: '7px 10px', textAlign: 'center', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>Taux effectif</th>
+                      <th style={{ padding: '7px 10px', textAlign: 'center', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>Décote / surcote</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {[
-                      { t: '120 T', taux: '52,33 %', decote: '−20,00 %' },
-                      { t: '140 T', taux: '61,05 %', decote: '−13,75 %' },
-                      { t: '155 T', taux: '67,61 %', decote: '−7,50 %' },
-                      { t: '165 T', taux: '71,97 %', decote: '−3,13 %' },
-                      { t: '172 T (taux plein)', taux: '75,00 %', decote: '0 %' },
-                      { t: '180 T (surcote)',    taux: '79,50 %', decote: '+5,00 %' },
-                    ].map((r, i) => (
+                    {EXEMPLES.map(({ t, r }) => ({
+                      t: t === 172 ? '172 T (taux plein)' : t > 172 ? `${t} T (surcote)` : `${t} T`,
+                      taux: pct(r.tauxEffectif),
+                      decote: r.surcote > 0 ? '+' + pct(r.surcote) : r.decote > 0 ? '−' + pct(r.decote) : '0 %',
+                    })).map((r, i) => (
                       <tr key={i} style={{ borderTop: '1px solid var(--border-soft)', background: i === 4 ? 'var(--success-bg)' : 'transparent' }}>
                         <td style={{ padding: '7px 10px', fontSize: 12, color: 'var(--text-secondary)', fontWeight: i >= 4 ? 700 : 400 }}>{r.t}</td>
                         <td style={{ padding: '7px 10px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, color: i >= 4 ? 'var(--success)' : 'var(--navy)' }}>{r.taux}</td>
@@ -437,7 +478,7 @@ export default function RetireSimPage() {
                     { label: 'Point d\'indice FPT', val: `${POINT_INDICE} €` },
                     { label: 'Taux maximum', val: '75 %' },
                     { label: 'Décote / trimestre', val: '1,25 %' },
-                    { label: 'Décote max', val: '20 %' },
+                    { label: 'Décote max', val: '25 % (20 T)' },
                     { label: 'Surcote / trimestre', val: '1,25 %' },
                     { label: 'Cotisation CNRACL', val: '11,10 % agent' },
                   ].map(({ label, val }) => (

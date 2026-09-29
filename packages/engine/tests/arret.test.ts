@@ -1,31 +1,37 @@
 // packages/engine/tests/arret.test.ts
 import { calculerArret } from '../src/arret';
-import { TAUX_CNRACL_EMPLOYEUR } from '../src/constants';
 
-describe('calculerArret — CMO', () => {
+describe('calculerArret — CMO (loi 2025-127 : 90 % puis demi-traitement)', () => {
   const agent = { indiceMajore: 400, traitementBrut: 2000, primesMenusuelles: 300 };
 
-  it('maintient 100% pendant 90 jours CMO', () => {
+  it('maintient 90 % pendant les 90 premiers jours', () => {
     const r = calculerArret({ agent, type: 'CMO', dureeJours: 90 });
-    expect(r.tauxMaintien).toBe(1.0);
-    expect(r.maintienTraitement).toBeCloseTo(2000 * (90 / 30), 2);
+    expect(r.tauxMaintien).toBe(0.9);
+    expect(r.maintienTraitement).toBeCloseTo(5400, 2); // 3 mois × 2000 × 90 %
   });
 
-  it('maintient 50% entre 91 et 365 jours CMO', () => {
+  it('passe à demi-traitement après 90 jours', () => {
     const r = calculerArret({ agent, type: 'CMO', dureeJours: 180 });
-    // 90j à 100% + 90j à 50%
-    const attendu = 2000 * 3 + 2000 * 0.5 * 3;
-    expect(r.maintienTraitement).toBeCloseTo(attendu, 0);
+    expect(r.maintienTraitement).toBeCloseTo(5400 + 3000, 0); // + 3 mois × 1000
   });
 
-  it('calcule le coût CNRACL employeur', () => {
-    const r = calculerArret({ agent, type: 'CMO', dureeJours: 30 });
-    expect(r.coutCNRACL).toBeCloseTo(2000 * TAUX_CNRACL_EMPLOYEUR, 2);
+  it('borne la phase à demi-traitement à 270 jours (12 mois au total)', () => {
+    const r = calculerArret({ agent, type: 'CMO', dureeJours: 400 });
+    expect(r.maintienTraitement).toBeCloseTo(5400 + 9000, 0); // 9 mois × 1000, rien au-delà
   });
 
-  it('coûtEmployeur = maintienTraitement + coutCNRACL', () => {
+  it('applique la CNRACL employeur 2026 (37,65 %) à un titulaire', () => {
     const r = calculerArret({ agent, type: 'CMO', dureeJours: 30 });
-    expect(r.coutEmployeur).toBeCloseTo(r.maintienTraitement + r.coutCNRACL, 2);
+    expect(r.regimeRetraite).toBe('CNRACL');
+    expect(r.cotisationRetraiteEmployeur).toBeCloseTo(1800 * 0.3765, 2);
+    expect(r.coutEmployeur).toBeCloseTo(1800 * 1.3765, 2);
+  });
+
+  it("applique l'IRCANTEC, pas la CNRACL, à un contractuel", () => {
+    const r = calculerArret({ agent, type: 'CMO', dureeJours: 30, statut: 'CONTRACTUEL' });
+    expect(r.statut).toBe('CONTRACTUEL');
+    expect(r.regimeRetraite).toBe('IRCANTEC');
+    expect(r.cotisationRetraiteEmployeur).toBeCloseTo(1800 * 0.0427, 2);
   });
 });
 

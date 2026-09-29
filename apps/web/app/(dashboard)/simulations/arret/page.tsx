@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { calculerArret } from '@tiarh/engine';
+import { calculerArret, TAUX_CNRACL_EMPLOYEUR, TAUX_IRCANTEC_EMPLOYEUR } from '@tiarh/engine';
 import type { TypeConge } from '@tiarh/engine';
 import { Topbar } from '@/components/dashboard/Topbar';
 
@@ -20,6 +20,30 @@ const TYPE_LABELS: Record<TypeConge, string> = {
   AT:    'AT — Accident de Travail',
   CITIS: 'CITIS — Accident imputable au service',
 };
+
+/** Phases de maintien affichées — mêmes bornes que le moteur (packages/engine/src/arret.ts). */
+const PHASES: Record<TypeConge, Array<{ phase: string; debut: number; fin: number | null; taux: string; color: string }>> = {
+  CMO: [
+    { phase: 'Phase 1 — 90 % du traitement', debut: 1,    fin: 90,   taux: '90 %',  color: 'var(--success)' },
+    { phase: 'Phase 2 — Demi-traitement',    debut: 91,   fin: 360,  taux: '50 %',  color: 'var(--amber)' },
+  ],
+  CLM: [
+    { phase: 'Phase 1 — Plein traitement',   debut: 1,    fin: 365,  taux: '100 %', color: 'var(--success)' },
+    { phase: 'Phase 2 — Demi-traitement',    debut: 366,  fin: 1095, taux: '50 %',  color: 'var(--amber)' },
+  ],
+  CLD: [
+    { phase: 'Phase 1 — Plein traitement',   debut: 1,    fin: 1095, taux: '100 %', color: 'var(--success)' },
+    { phase: 'Phase 2 — Demi-traitement',    debut: 1096, fin: 1825, taux: '50 %',  color: 'var(--amber)' },
+  ],
+  AT: [
+    { phase: 'Plein traitement',             debut: 1,    fin: null, taux: '100 %', color: 'var(--success)' },
+  ],
+  CITIS: [
+    { phase: 'Plein traitement',             debut: 1,    fin: null, taux: '100 %', color: 'var(--success)' },
+  ],
+};
+
+const pctTaux = (t: number) => (t * 100).toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' %';
 
 const IM_OPTIONS = [
   { value: 340, label: '340 — Cat. C début' },
@@ -65,7 +89,7 @@ const INPUT: React.CSSProperties = {
 
 export default function SimulArretPage() {
   const [showPanel, setShowPanel] = useState(false);
-  const [statut, setStatut] = useState<'Titulaire' | 'Contractuel'>('Contractuel');
+  const [statut, setStatut] = useState<'Titulaire' | 'Contractuel'>('Titulaire');
   const [form, setForm] = useState<FormState>({
     indiceMajore:      '540',
     traitementBrut:    '2650',
@@ -89,6 +113,7 @@ export default function SimulArretPage() {
       },
       type:       form.type,
       dureeJours: Number(form.dureeJours),
+      statut:     statut === 'Titulaire' ? 'TITULAIRE' : 'CONTRACTUEL',
     }));
   }
 
@@ -403,9 +428,9 @@ export default function SimulArretPage() {
                 </div>
               </div>
               <div className="breakdown-cell">
-                <div className="breakdown-cell-label">Charges CNRACL</div>
+                <div className="breakdown-cell-label">Charges {result ? result.regimeRetraite : 'retraite'}</div>
                 <div className="breakdown-cell-value" style={{ color: 'var(--danger)' }}>
-                  {result ? fmt(result.coutCNRACL) : '—'}
+                  {result ? fmt(result.cotisationRetraiteEmployeur) : '—'}
                 </div>
               </div>
               <div className="breakdown-cell">
@@ -426,29 +451,13 @@ export default function SimulArretPage() {
             <div className="ds-card" style={{ marginBottom: 0 }}>
               <div className="ds-card-header">📅 Phases réglementaires</div>
               <div className="ds-card-body" style={{ paddingTop: 12 }}>
-                {[
-                  {
-                    phase: 'Phase 1 — Plein traitement',
-                    range: 'J0–J90',
-                    desc: 'Traitement + primes + CNRACL',
-                    color: 'var(--success)',
-                    active: duree > 0,
-                  },
-                  {
-                    phase: 'Phase 2 — Demi-traitement',
-                    range: 'J91–J180',
-                    desc: 'Demi-traitement + primes + CNRACL',
-                    color: 'var(--amber)',
-                    active: duree > 90,
-                  },
-                  {
-                    phase: 'Phase 3 — Demi seul',
-                    range: 'J181–J365',
-                    desc: 'Demi-traitement uniquement',
-                    color: 'var(--danger)',
-                    active: duree > 180,
-                  },
-                ].map((p, idx, arr) => (
+                {PHASES[form.type].map(p => ({
+                  phase: p.phase,
+                  range: p.fin === null ? `J${p.debut} → consolidation` : `J${p.debut}–J${p.fin}`,
+                  desc: `${p.taux} du traitement indiciaire`,
+                  color: p.color,
+                  active: duree >= p.debut,
+                })).map((p, idx, arr) => (
                   <div key={p.phase} style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 20 }}>
                       <div style={{
@@ -481,11 +490,23 @@ export default function SimulArretPage() {
               </div>
             </div>
 
+            {statut === 'Contractuel' && (
+              <div className="notice-warning">
+                <span>⚠</span>
+                <div>
+                  {form.type === 'CLM' || form.type === 'CLD'
+                    ? 'CLM et CLD sont réservés aux titulaires : un contractuel relève du congé de grave maladie.'
+                    : 'Contractuel : cotisation IRCANTEC au lieu de la CNRACL. Les durées de maintien dépendent de l\'ancienneté (décret n°88-145) et les IJSS ne sont pas déduites.'}
+                </div>
+              </div>
+            )}
+
             {/* Legal notice */}
             <div className="notice-info">
               <span>ℹ️</span>
               <div>
-                Résultats indicatifs. Base légale : CGFP art. L822-1, décret n°87-602, taux CNRACL 30,65%.
+                Résultats indicatifs. Base légale : CGFP art. L822-1 et L822-3 (loi n°2025-127), décret n°87-602,
+                CNRACL employeur {pctTaux(TAUX_CNRACL_EMPLOYEUR)} · IRCANTEC {pctTaux(TAUX_IRCANTEC_EMPLOYEUR)} (2026).
               </div>
             </div>
           </div>
@@ -541,11 +562,10 @@ export default function SimulArretPage() {
                 {
                   type: 'CMO', label: 'Congé Maladie Ordinaire', color: 'var(--amber)', bg: 'var(--amber-bg)',
                   lignes: [
-                    { phase: 'Phase 1  (j 1–90)',   plein: '100 %', demi: '—' },
-                    { phase: 'Phase 2  (j 91–180)',  plein: '50 %',  demi: '—' },
-                    { phase: 'Phase 3  (j 181–270)', plein: '0 %',   demi: '—' },
+                    { phase: 'Phase 1  (j 1–90)',   plein: '90 %', demi: '—' },
+                    { phase: 'Phase 2  (j 91–360)',  plein: '50 %', demi: '—' },
                   ],
-                  note: 'Durée max : 12 mois de CMO sur une période de 12 mois consécutifs. Titulaires et contractuels.',
+                  note: 'Durée max : 12 mois sur une période de 12 mois consécutifs. 90 % pendant 3 mois pour les arrêts depuis le 01/03/2025 (loi n°2025-127, art. 189). Contractuels : durées selon l\'ancienneté (décret n°88-145, art. 7).',
                 },
                 {
                   type: 'CLM', label: 'Congé Longue Maladie', color: 'var(--indigo)', bg: 'var(--info-bg)',
@@ -560,7 +580,6 @@ export default function SimulArretPage() {
                   lignes: [
                     { phase: 'Années 1–3', plein: '100 %', demi: '—' },
                     { phase: 'Années 4–5', plein: '50 %',  demi: '—' },
-                    { phase: 'Années 6–8', plein: '0 %',   demi: '—' },
                   ],
                   note: 'Titulaires uniquement. Affections longue durée (ALD) : tuberculose, cancer, maladie mentale, polio, déficit immunitaire.',
                 },
@@ -619,9 +638,9 @@ export default function SimulArretPage() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                   {[
-                    { label: 'CNRACL employeur', val: '30,65 %' },
+                    { label: 'CNRACL employeur', val: pctTaux(TAUX_CNRACL_EMPLOYEUR) },
                     { label: 'RAFP employeur',   val: '5 %' },
-                    { label: 'CSG/CRDS',         val: '9,7 %' },
+                    { label: 'IRCANTEC (TA)',    val: pctTaux(TAUX_IRCANTEC_EMPLOYEUR) },
                     { label: 'Cotis. chômage',   val: '0 % (FPT)' },
                   ].map(({ label, val }) => (
                     <div key={label} style={{

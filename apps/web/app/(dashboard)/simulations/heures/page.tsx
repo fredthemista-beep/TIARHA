@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
-import { calculerHeures, CET_PLAFOND_JOURS } from '@tiarh/engine';
+import { calculerHeures, CET_PLAFOND_JOURS, POINT_INDICE, IHTS_PLAFOND_MENSUEL } from '@tiarh/engine';
+import type { AffectationHeures, MajorationHeures, ZoneResidence } from '@tiarh/engine';
 import { PlanGate } from '@tiarh/ui';
 import { Topbar as DsTopbar } from '@/components/dashboard/Topbar';
 
@@ -21,10 +22,15 @@ const AFFECTATION_OPTIONS = [
 ] as const;
 
 const MAJORATION_OPTIONS = [
-  { value: 'standard', label: 'Standard' },
-  { value: 'nuit',     label: 'Nuit (+25%)' },
-  { value: 'dimanche', label: 'Dimanche (+25%)' },
-  { value: 'ferie',    label: 'Férié (+100%)' },
+  { value: 'standard',      label: 'Standard (jour ouvré)' },
+  { value: 'nuit',          label: 'Nuit 22h–7h (+100 %)' },
+  { value: 'dimancheFerie', label: 'Dimanche ou férié (+2/3)' },
+] as const;
+
+const ZONE_OPTIONS = [
+  { value: '3', label: 'Zone 3 — sans indemnité (0 %)' },
+  { value: '2', label: 'Zone 2 — indemnité 1 %' },
+  { value: '1', label: 'Zone 1 — indemnité 3 %' },
 ] as const;
 
 function fmt(n: number) {
@@ -65,6 +71,7 @@ export default function HeuresPage() {
     categorie:         'C',
     affectation:       'IHTS',
     majoration:        'standard',
+    zoneResidence:     '3',
   });
   const [result, setResult] = useState<ReturnType<typeof calculerHeures> | null>(null);
 
@@ -77,6 +84,9 @@ export default function HeuresPage() {
       indiceMajore:      Number(form.indiceMajore),
       heuresSup:         Number(form.heuresSup),
       joursCETExistants: Number(form.joursCETExistants),
+      zoneResidence:     Number(form.zoneResidence) as ZoneResidence,
+      majoration:        form.majoration as MajorationHeures,
+      affectation:       form.affectation as AffectationHeures,
     }));
   }
 
@@ -210,15 +220,30 @@ export default function HeuresPage() {
                   </div>
                 </div>
 
-                {/* Jours CET */}
-                <div style={{ marginBottom: 18 }}>
-                  <div style={LABEL}>Jours CET existants</div>
-                  <input type="number" style={{ ...INPUT, width: '50%' }}
-                    min={0} max={60}
-                    value={form.joursCETExistants}
-                    onChange={e => set('joursCETExistants', e.target.value)}
-                    placeholder="ex : 10" />
+                {/* Jours CET + zone de résidence */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 18 }}>
+                  <div>
+                    <div style={LABEL}>Jours CET existants</div>
+                    <input type="number" style={INPUT}
+                      min={0} max={60}
+                      value={form.joursCETExistants}
+                      onChange={e => set('joursCETExistants', e.target.value)}
+                      placeholder="ex : 10" />
+                  </div>
+                  <div>
+                    <div style={LABEL}>Indemnité de résidence</div>
+                    <select style={INPUT} value={form.zoneResidence} onChange={e => set('zoneResidence', e.target.value)}>
+                      {ZONE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
                 </div>
+
+                {form.categorie === 'A' && (
+                  <div className="notice-warning" style={{ marginBottom: 18 }}>
+                    <span>⚠</span>
+                    <div>Les IHTS sont réservées aux catégories B et C (et à certains emplois de catégorie A listés par arrêté).</div>
+                  </div>
+                )}
 
                 {/* Separator */}
                 <div style={{ height: 1, background: 'var(--border-soft)', marginBottom: 18 }} />
@@ -261,10 +286,10 @@ export default function HeuresPage() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
                 <div className="breakdown-cell">
-                  <div className="breakdown-cell-label">Taux horaire IHTS</div>
+                  <div className="breakdown-cell-label">Taux horaire de base</div>
                   <div className="breakdown-cell-value" style={{ color: 'var(--navy)' }}>
                     {result
-                      ? result.ihtsParHeure.toLocaleString('fr-FR', { minimumFractionDigits: 4, maximumFractionDigits: 4 }) + ' €'
+                      ? result.ihtsParHeure.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
                       : '—'}
                   </div>
                 </div>
@@ -282,9 +307,16 @@ export default function HeuresPage() {
                 </div>
                 <div className="breakdown-cell">
                   <div className="breakdown-cell-label">Plafond mensuel</div>
-                  <div className="breakdown-cell-value" style={{ color: 'var(--amber)' }}>25 h</div>
+                  <div className="breakdown-cell-value" style={{ color: 'var(--amber)' }}>{IHTS_PLAFOND_MENSUEL} h</div>
                 </div>
               </div>
+
+              {result && result.heuresRecuperation > 0 && (
+                <div className="notice-info">
+                  <span>ℹ️</span>
+                  <div>{result.heuresRecuperation} h à rendre en repos compensateur — aucune indemnité versée.</div>
+                </div>
+              )}
 
               {result && result.joursCET > 0 && (
                 <div className="ds-card" style={{ marginBottom: 0 }}>
@@ -317,7 +349,7 @@ export default function HeuresPage() {
 
               <div className="notice-info">
                 <span>ℹ️</span>
-                <div>Taux = IM × 4,92278 / 1820. Décret n°2002-60 du 14/01/2002.</div>
+                <div>Taux = (traitement brut annuel + indemnité de résidence) / 1820, × 1,25 jusqu&apos;à 14 h puis × 1,27. Décret n°2002-60 du 14/01/2002.</div>
               </div>
             </div>
 
@@ -378,8 +410,8 @@ export default function HeuresPage() {
                   fontSize: 13, color: 'var(--navy)', lineHeight: 1.8,
                   border: '1px solid var(--border-soft)',
                 }}>
-                  Taux horaire = IM × {(4.92278).toFixed(5)} / 1820<br />
-                  IHTS brut = taux horaire × nb heures × coefficient<br />
+                  Taux horaire = (IM × {POINT_INDICE} × 12 + indemnité de résidence) / 1820<br />
+                  IHTS brut = taux horaire × (14 h × 1,25 + heures suivantes × 1,27) × majoration<br />
                   Net estimé = brut × 0,77
                 </div>
               </div>
@@ -399,10 +431,10 @@ export default function HeuresPage() {
                   </thead>
                   <tbody>
                     {[
-                      { type: 'Standard (jour)',  coeff: '× 1,00', base: 'Art. 6 D.2002-60',   color: 'var(--text-primary)' },
-                      { type: 'Nuit (21h–7h)',    coeff: '× 1,25', base: 'Art. 6 al. 2',       color: 'var(--indigo)' },
-                      { type: 'Dimanche',         coeff: '× 1,25', base: 'Art. 6 al. 2',       color: 'var(--indigo)' },
-                      { type: 'Jour férié',       coeff: '× 2,00', base: 'Art. 6 al. 3',       color: 'var(--danger)' },
+                      { type: '14 premières heures',   coeff: '× 1,25', base: 'Art. 7 D.2002-60', color: 'var(--text-primary)' },
+                      { type: 'De la 15e à la 25e',    coeff: '× 1,27', base: 'Art. 7',           color: 'var(--text-primary)' },
+                      { type: 'Nuit (22h–7h)',         coeff: '+ 100 %', base: 'Art. 8',          color: 'var(--danger)' },
+                      { type: 'Dimanche / jour férié', coeff: '+ 2/3',   base: 'Art. 8',          color: 'var(--indigo)' },
                     ].map((r, i) => (
                       <tr key={i} style={{ borderTop: '1px solid var(--border-soft)' }}>
                         <td style={{ padding: '7px 10px', fontSize: 12, color: 'var(--text-secondary)' }}>{r.type}</td>
@@ -430,13 +462,14 @@ export default function HeuresPage() {
                   </thead>
                   <tbody>
                     {[340,380,420,460,500,540,620,700,800].map((im, i) => {
-                      const taux = (im * 4.92278 / 1820);
+                      const taux = calculerHeures({ indiceMajore: im, heuresSup: 0, joursCETExistants: 0 }).ihtsParHeure;
+                      const brut = (h: number) => calculerHeures({ indiceMajore: im, heuresSup: h, joursCETExistants: 0 }).ihtsTotal;
                       return (
                         <tr key={im} style={{ borderTop: '1px solid var(--border-soft)', background: i % 2 === 0 ? 'transparent' : 'var(--surface-2)' }}>
                           <td style={{ padding: '7px 10px', fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, color: 'var(--navy)' }}>IM {im}</td>
-                          <td style={{ padding: '7px 10px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 12 }}>{taux.toFixed(4)} €</td>
-                          <td style={{ padding: '7px 10px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--indigo)' }}>{(taux * 10).toFixed(2)} €</td>
-                          <td style={{ padding: '7px 10px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--teal)', fontWeight: 700 }}>{(taux * 25).toFixed(2)} €</td>
+                          <td style={{ padding: '7px 10px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 12 }}>{taux.toFixed(2)} €</td>
+                          <td style={{ padding: '7px 10px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--indigo)' }}>{brut(10).toFixed(2)} €</td>
+                          <td style={{ padding: '7px 10px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--teal)', fontWeight: 700 }}>{brut(25).toFixed(2)} €</td>
                         </tr>
                       );
                     })}
@@ -451,10 +484,10 @@ export default function HeuresPage() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                   {[
-                    { label: 'Plafond mensuel IHTS',  val: `${CET_PLAFOND_JOURS > 0 ? '25 h' : '25 h'}` },
+                    { label: 'Plafond mensuel IHTS',  val: `${IHTS_PLAFOND_MENSUEL} h` },
                     { label: 'Plafond annuel IHTS',   val: '300 h' },
                     { label: 'Plafond CET',           val: `${CET_PLAFOND_JOURS} jours` },
-                    { label: 'Conversion CET → €',   val: '125 € / j (cat. C)' },
+                    { label: 'Monétisation CET',     val: '83 € / j (cat. C)' },
                   ].map(({ label, val }) => (
                     <div key={label} style={{
                       padding: '8px 12px', background: 'var(--surface-2)',
