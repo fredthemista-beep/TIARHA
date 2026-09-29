@@ -1,8 +1,12 @@
 'use client';
-import { useState } from 'react';
-import { calculerArret, TAUX_CNRACL_EMPLOYEUR, TAUX_IRCANTEC_EMPLOYEUR } from '@tiarh/engine';
-import type { TypeConge } from '@tiarh/engine';
+import { Suspense, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { calculerArret, POINT_INDICE, TAUX_CNRACL_EMPLOYEUR, TAUX_IRCANTEC_EMPLOYEUR } from '@tiarh/engine';
+import type { StatutAgent, TypeConge } from '@tiarh/engine';
 import { Topbar } from '@/components/dashboard/Topbar';
+import { PrefillNotice } from '@/components/dashboard/PrefillNotice';
+import { getAgent } from '@/lib/demo-data';
+import { readEnum, readNumber, withOption } from '@/lib/prefill';
 
 type FormState = {
   indiceMajore: string;
@@ -87,35 +91,83 @@ const INPUT: React.CSSProperties = {
   appearance: 'none' as const,
 };
 
-export default function SimulArretPage() {
-  const [showPanel, setShowPanel] = useState(false);
-  const [statut, setStatut] = useState<'Titulaire' | 'Contractuel'>('Titulaire');
-  const [form, setForm] = useState<FormState>({
+type Statut = 'Titulaire' | 'Contractuel';
+
+function computeArret(form: FormState, statut: Statut) {
+  return calculerArret({
+    agent: {
+      indiceMajore:     Number(form.indiceMajore),
+      traitementBrut:   Number(form.traitementBrut),
+      primesMenusuelles: Number(form.primesMenusuelles),
+    },
+    type:       form.type,
+    dureeJours: Number(form.dureeJours),
+    statut:     statut === 'Titulaire' ? 'TITULAIRE' : 'CONTRACTUEL',
+  });
+}
+
+/** État initial : paramètres d'URL (fiche agent) ou valeurs par défaut. */
+function readPrefill(params: { get(k: string): string | null }) {
+  const defaults: FormState = {
     indiceMajore:      '540',
     traitementBrut:    '2650',
     primesMenusuelles: '320',
     remplacementJour:  '130',
     type:              'CMO',
     dureeJours:        '65',
-  });
-  const [result, setResult] = useState<ReturnType<typeof calculerArret> | null>(null);
+  };
+  const im = readNumber(params, 'im', 200, 1500);
+  const statutParam = readEnum<StatutAgent>(params, 'statut', ['TITULAIRE', 'CONTRACTUEL']);
+  if (im === null || statutParam === null) {
+    return { prefilled: false, form: defaults, statut: 'Titulaire' as Statut, cat: 'A' as (typeof CAT_OPTIONS)[number] };
+  }
+  const traitement = readNumber(params, 'traitement', 0, 20000) ?? Math.round(im * POINT_INDICE * 100) / 100;
+  const type = readEnum<TypeConge>(params, 'type', ['CMO', 'CLM', 'CLD', 'AT', 'CITIS']);
+  const duree = readNumber(params, 'duree', 1, 365);
+  const agent = getAgent(params.get('agent'));
+  return {
+    prefilled: true,
+    form: {
+      ...defaults,
+      indiceMajore: String(im),
+      traitementBrut: String(traitement),
+      type: type ?? defaults.type,
+      dureeJours: String(duree !== null ? Math.round(duree) : Number(defaults.dureeJours)),
+    },
+    statut: (statutParam === 'TITULAIRE' ? 'Titulaire' : 'Contractuel') as Statut,
+    cat: agent?.cat ?? ('A' as (typeof CAT_OPTIONS)[number]),
+  };
+}
+
+export default function SimulArretPage() {
+  return (
+    <Suspense fallback={null}>
+      <SimulArret />
+    </Suspense>
+  );
+}
+
+function SimulArret() {
+  const searchParams = useSearchParams();
+  const [initial] = useState(() => readPrefill(searchParams));
+  const agentId = initial.prefilled ? searchParams.get('agent') : null;
+  const [showPanel, setShowPanel] = useState(false);
+  const [statut, setStatut] = useState<Statut>(initial.statut);
+  const [categorie, setCategorie] = useState<string>(initial.cat);
+  const [form, setForm] = useState<FormState>(initial.form);
+  const [result, setResult] = useState<ReturnType<typeof calculerArret> | null>(
+    () => (initial.prefilled ? computeArret(initial.form, initial.statut) : null),
+  );
 
   function set(key: keyof FormState, value: string) {
     setForm(prev => ({ ...prev, [key]: value }));
   }
 
   function handleCalculate() {
-    setResult(calculerArret({
-      agent: {
-        indiceMajore:     Number(form.indiceMajore),
-        traitementBrut:   Number(form.traitementBrut),
-        primesMenusuelles: Number(form.primesMenusuelles),
-      },
-      type:       form.type,
-      dureeJours: Number(form.dureeJours),
-      statut:     statut === 'Titulaire' ? 'TITULAIRE' : 'CONTRACTUEL',
-    }));
+    setResult(computeArret(form, statut));
   }
+
+  const imOptions = withOption(IM_OPTIONS, Number(form.indiceMajore), `${form.indiceMajore} — dossier agent`);
 
   const duree    = Number(form.dureeJours);
   const rempJour = Number(form.remplacementJour);
@@ -127,7 +179,7 @@ export default function SimulArretPage() {
 
   return (
     <>
-      <Topbar title="SimulArrêt" subtitle="Coût employeur arrêts maladie" plan="free" />
+      <Topbar title="SimulArrêt" subtitle="Coût employeur arrêts maladie" />
 
       {/* Page header */}
       <div className="page-header">
@@ -146,13 +198,15 @@ export default function SimulArretPage() {
           </div>
         </div>
         <div className="sub-nav">
-          <button className="sub-tab active">Simulation</button>
-          <button className="sub-tab">Formules &amp; règles</button>
-          <button className="sub-tab">Historique calculs</button>
+          <button type="button" className={`sub-tab${showPanel ? '' : ' active'}`} onClick={() => setShowPanel(false)}>Simulation</button>
+          <button type="button" className={`sub-tab${showPanel ? ' active' : ''}`} onClick={() => setShowPanel(true)}>Formules &amp; règles</button>
+          <button type="button" className="sub-tab" disabled title="Bientôt disponible">Historique calculs</button>
         </div>
       </div>
 
       <div className="page-body">
+
+        <PrefillNotice agentId={agentId} />
 
         {/* Notice */}
         <div className="notice-warning">
@@ -257,7 +311,8 @@ export default function SimulArretPage() {
                   <div style={LABEL}>Catégorie</div>
                   <select
                     style={INPUT}
-                    defaultValue="A"
+                    value={categorie}
+                    onChange={e => setCategorie(e.target.value)}
                   >
                     {CAT_OPTIONS.map(c => (
                       <option key={c} value={c}>Catégorie {c}</option>
@@ -276,7 +331,7 @@ export default function SimulArretPage() {
                     value={form.indiceMajore}
                     onChange={e => set('indiceMajore', e.target.value)}
                   >
-                    {IM_OPTIONS.map(o => (
+                    {imOptions.map(o => (
                       <option key={o.value} value={o.value}>{o.label}</option>
                     ))}
                   </select>

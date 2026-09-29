@@ -1,5 +1,6 @@
 'use client';
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   calculerBaseAnnuelle,
   calculerSoldeAnnuel,
@@ -8,6 +9,9 @@ import {
 import type { SaisieMensuelle, ResultatBaseAnnuelle, ResultatSoldeAnnuel } from '@tiarh/engine';
 import { Topbar } from '@/components/dashboard/Topbar';
 import { PlanGate } from '@tiarh/ui';
+import { PrefillNotice } from '@/components/dashboard/PrefillNotice';
+import { ORG } from '@/lib/demo-data';
+import { readNumber } from '@/lib/prefill';
 
 const MOIS_LABELS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'] as const;
 
@@ -44,49 +48,80 @@ const ALERTE_LABELS: Record<AlerteType, string> = {
 };
 
 export default function AnnualisationPage() {
-  const currentYear = new Date().getFullYear();
+  return (
+    <Suspense fallback={null}>
+      <Annualisation />
+    </Suspense>
+  );
+}
 
-  const [showPanel, setShowPanel] = useState(false);
-  const [activeTab, setActiveTab] = useState<'saisie' | 'alertes'>('saisie');
-  const [form, setForm] = useState({
-    quotite:               '100',
-    annee:                 String(currentYear),
+type AnnualisationForm = {
+  quotite: string;
+  annee: string;
+  dateDebut: string;
+  dateFin: string;
+  heuresTotalesManuelle: string;
+};
+
+function buildMoisSaisis(inputs: Record<number, string>): SaisieMensuelle[] {
+  return Object.entries(inputs)
+    .filter(([, v]) => v !== '' && !isNaN(Number(v)))
+    .flatMap(([k, v]) => {
+      const m = Number(k);
+      if (m < 1 || m > 12) return [];
+      return [{ mois: m as SaisieMensuelle['mois'], heures: Number(v) }];
+    });
+}
+
+function computeAnnualisation(form: AnnualisationForm, moisInputs: Record<number, string>) {
+  const quotite = Math.min(1, Math.max(0.01, Number(form.quotite) / 100));
+  const base = calculerBaseAnnuelle({
+    quotite,
+    annee:     Number(form.annee),
+    dateDebut: form.dateDebut || undefined,
+    dateFin:   form.dateFin   || undefined,
+  });
+  const solde = calculerSoldeAnnuel({
+    heuresDues:             base.heuresDues,
+    moisSaisis:             buildMoisSaisis(moisInputs),
+    heuresTotalesManuelle:  form.heuresTotalesManuelle !== '' ? Number(form.heuresTotalesManuelle) : undefined,
+  });
+  return { base, solde };
+}
+
+/** État initial : quotité lue dans l'URL (fiche agent) ou valeurs par défaut. */
+function readPrefill(params: { get(k: string): string | null }) {
+  const quotite = readNumber(params, 'quotite', 1, 100);
+  const form: AnnualisationForm = {
+    quotite:               String(quotite ?? 100),
+    annee:                 String(new Date().getFullYear()),
     dateDebut:             '',
     dateFin:               '',
     heuresTotalesManuelle: '',
-  });
-  const [moisInputs, setMoisInputs]   = useState<Record<number, string>>({});
-  const [base,  setBase]  = useState<ResultatBaseAnnuelle | null>(null);
-  const [solde, setSolde] = useState<ResultatSoldeAnnuel  | null>(null);
+  };
+  return { prefilled: quotite !== null, form, initialResult: quotite !== null ? computeAnnualisation(form, {}) : null };
+}
 
-  function set(key: keyof typeof form, value: string) {
+function Annualisation() {
+  const searchParams = useSearchParams();
+  const [initial] = useState(() => readPrefill(searchParams));
+  const agentId = initial.prefilled ? searchParams.get('agent') : null;
+
+  const [showPanel, setShowPanel] = useState(false);
+  const [activeTab, setActiveTab] = useState<'saisie' | 'alertes'>('saisie');
+  const [form, setForm] = useState<AnnualisationForm>(initial.form);
+  const [moisInputs, setMoisInputs]   = useState<Record<number, string>>({});
+  const [base,  setBase]  = useState<ResultatBaseAnnuelle | null>(initial.initialResult?.base ?? null);
+  const [solde, setSolde] = useState<ResultatSoldeAnnuel  | null>(initial.initialResult?.solde ?? null);
+
+  function set(key: keyof AnnualisationForm, value: string) {
     setForm(p => ({ ...p, [key]: value }));
   }
 
-  function buildMoisSaisis(inputs: Record<number, string>): SaisieMensuelle[] {
-    return Object.entries(inputs)
-      .filter(([, v]) => v !== '' && !isNaN(Number(v)))
-      .flatMap(([k, v]) => {
-        const m = Number(k);
-        if (m < 1 || m > 12) return [];
-        return [{ mois: m as SaisieMensuelle['mois'], heures: Number(v) }];
-      });
-  }
-
   function calculer() {
-    const quotite = Math.min(1, Math.max(0.01, Number(form.quotite) / 100));
-    const resultBase = calculerBaseAnnuelle({
-      quotite,
-      annee:     Number(form.annee),
-      dateDebut: form.dateDebut || undefined,
-      dateFin:   form.dateFin   || undefined,
-    });
-    setBase(resultBase);
-    setSolde(calculerSoldeAnnuel({
-      heuresDues:             resultBase.heuresDues,
-      moisSaisis:             buildMoisSaisis(moisInputs),
-      heuresTotalesManuelle:  form.heuresTotalesManuelle !== '' ? Number(form.heuresTotalesManuelle) : undefined,
-    }));
+    const r = computeAnnualisation(form, moisInputs);
+    setBase(r.base);
+    setSolde(r.solde);
   }
 
   function onMoisChange(mois: number, valeur: string) {
@@ -127,7 +162,7 @@ export default function AnnualisationPage() {
       <Topbar
         title="AnnualisationRH"
         subtitle={`Annualisation du temps de travail — base ${HEURES_ANNUELLES} h (FPT)`}
-        plan="starter"
+       
       />
 
       {/* Page header */}
@@ -147,14 +182,15 @@ export default function AnnualisationPage() {
           </div>
         </div>
         <div className="sub-nav">
-          <button className="sub-tab active">Simulation</button>
-          <button className="sub-tab">Suivi d&apos;équipe</button>
-          <button className="sub-tab">Historique</button>
+          <button type="button" className="sub-tab active">Simulation</button>
+          <button type="button" className="sub-tab" disabled title="Bientôt disponible">Suivi d&apos;équipe</button>
+          <button type="button" className="sub-tab" disabled title="Bientôt disponible">Historique</button>
         </div>
       </div>
 
       <div className="page-body">
-        <PlanGate required={['starter', 'pro', 'enterprise']} currentPlan="starter">
+        <PlanGate required={['starter', 'pro', 'enterprise']} currentPlan={ORG.plan}>
+          <PrefillNotice agentId={agentId} />
 
           {/* ── KPI strip ── */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 24 }}>

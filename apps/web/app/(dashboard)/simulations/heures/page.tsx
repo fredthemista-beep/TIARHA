@@ -1,9 +1,14 @@
 'use client';
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { calculerHeures, CET_PLAFOND_JOURS, POINT_INDICE, IHTS_PLAFOND_MENSUEL } from '@tiarh/engine';
 import type { AffectationHeures, MajorationHeures, ZoneResidence } from '@tiarh/engine';
 import { PlanGate } from '@tiarh/ui';
 import { Topbar as DsTopbar } from '@/components/dashboard/Topbar';
+import { PrefillNotice } from '@/components/dashboard/PrefillNotice';
+import { AGENTS, CET_SEUIL_ALERTE, ORG, nomListe } from '@/lib/demo-data';
+import { readEnum, readNumber, withOption } from '@/lib/prefill';
 
 const IM_OPTIONS = [
   { value: 340, label: 'IM 340 — Cat. C début' },
@@ -62,9 +67,30 @@ const INPUT: React.CSSProperties = {
   appearance: 'none' as const,
 };
 
-export default function HeuresPage() {
-  const [showPanel, setShowPanel] = useState(false);
-  const [form, setForm] = useState({
+type HeuresForm = {
+  indiceMajore: string;
+  heuresSup: string;
+  joursCETExistants: string;
+  categorie: string;
+  affectation: string;
+  majoration: string;
+  zoneResidence: string;
+};
+
+function computeHeures(form: HeuresForm) {
+  return calculerHeures({
+    indiceMajore:      Number(form.indiceMajore),
+    heuresSup:         Number(form.heuresSup),
+    joursCETExistants: Number(form.joursCETExistants),
+    zoneResidence:     Number(form.zoneResidence) as ZoneResidence,
+    majoration:        form.majoration as MajorationHeures,
+    affectation:       form.affectation as AffectationHeures,
+  });
+}
+
+/** État initial : paramètres d'URL (fiche agent) ou valeurs par défaut. */
+function readPrefill(params: { get(k: string): string | null }) {
+  const defaults: HeuresForm = {
     indiceMajore:      '380',
     heuresSup:         '14',
     joursCETExistants: '10',
@@ -72,29 +98,53 @@ export default function HeuresPage() {
     affectation:       'IHTS',
     majoration:        'standard',
     zoneResidence:     '3',
-  });
-  const [result, setResult] = useState<ReturnType<typeof calculerHeures> | null>(null);
+  };
+  const im = readNumber(params, 'im', 200, 1500);
+  const cet = readNumber(params, 'cet', 0, 60);
+  const cat = readEnum(params, 'cat', CAT_OPTIONS);
+  if (im === null || cet === null) return { prefilled: false, form: defaults };
+  return {
+    prefilled: true,
+    form: { ...defaults, indiceMajore: String(im), joursCETExistants: String(Math.round(cet)), categorie: cat ?? defaults.categorie },
+  };
+}
 
-  function set(key: keyof typeof form, value: string) {
+type Vue = 'simulateur' | 'cet';
+
+export default function HeuresPage() {
+  return (
+    <Suspense fallback={null}>
+      <Heures />
+    </Suspense>
+  );
+}
+
+function Heures() {
+  const searchParams = useSearchParams();
+  const [initial] = useState(() => readPrefill(searchParams));
+  const agentId = initial.prefilled ? searchParams.get('agent') : null;
+  const [vue, setVue] = useState<Vue>(() => (searchParams.get('vue') === 'cet' ? 'cet' : 'simulateur'));
+  const [showPanel, setShowPanel] = useState(false);
+  const [form, setForm] = useState<HeuresForm>(initial.form);
+  const [result, setResult] = useState<ReturnType<typeof calculerHeures> | null>(
+    () => (initial.prefilled ? computeHeures(initial.form) : null),
+  );
+
+  function set(key: keyof HeuresForm, value: string) {
     setForm(p => ({ ...p, [key]: value }));
   }
 
   function calc() {
-    setResult(calculerHeures({
-      indiceMajore:      Number(form.indiceMajore),
-      heuresSup:         Number(form.heuresSup),
-      joursCETExistants: Number(form.joursCETExistants),
-      zoneResidence:     Number(form.zoneResidence) as ZoneResidence,
-      majoration:        form.majoration as MajorationHeures,
-      affectation:       form.affectation as AffectationHeures,
-    }));
+    setResult(computeHeures(form));
   }
+
+  const imOptions = withOption(IM_OPTIONS, Number(form.indiceMajore), `IM ${form.indiceMajore} — dossier agent`);
 
   const cetAlert = result?.cetPlafondAtteint;
 
   return (
     <>
-      <DsTopbar title="HeuresSup+" subtitle={`IHTS + CET (plafond ${CET_PLAFOND_JOURS} jours)`} plan="starter" />
+      <DsTopbar title="HeuresSup+" subtitle={`IHTS + CET (plafond ${CET_PLAFOND_JOURS} jours)`} />
 
       <div className="page-header">
         <div className="page-header-top">
@@ -112,14 +162,17 @@ export default function HeuresPage() {
           </div>
         </div>
         <div className="sub-nav">
-          <button className="sub-tab active">Simulateur IHTS</button>
-          <button className="sub-tab">Suivi mensuel</button>
-          <button className="sub-tab">CET — Soldes</button>
+          <button type="button" className={`sub-tab${vue === 'simulateur' ? ' active' : ''}`} onClick={() => setVue('simulateur')}>Simulateur IHTS</button>
+          <button type="button" className="sub-tab" disabled title="Bientôt disponible">Suivi mensuel</button>
+          <button type="button" className={`sub-tab${vue === 'cet' ? ' active' : ''}`} onClick={() => setVue('cet')}>CET — Soldes</button>
         </div>
       </div>
 
       <div className="page-body">
-        <PlanGate required={['starter', 'pro', 'enterprise']} currentPlan="starter">
+        <PlanGate required={['starter', 'pro', 'enterprise']} currentPlan={ORG.plan}>
+          {vue === 'cet' && <CetSoldes />}
+          {vue === 'simulateur' && (<>
+          <PrefillNotice agentId={agentId} />
 
           <div className="notice-warning">
             <span>⚠</span>
@@ -180,7 +233,7 @@ export default function HeuresPage() {
                   <div>
                     <div style={LABEL}>Indice Majoré (IM)</div>
                     <select style={INPUT} value={form.indiceMajore} onChange={e => set('indiceMajore', e.target.value)}>
-                      {IM_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      {imOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   </div>
                 </div>
@@ -354,6 +407,7 @@ export default function HeuresPage() {
             </div>
 
           </div>
+          </>)}
         </PlanGate>
       </div>
       {/* ── Drawer Barème IHTS ── */}
@@ -508,6 +562,61 @@ export default function HeuresPage() {
           </div>
         </>
       )}
+    </>
+  );
+}
+
+/** Soldes CET de l'effectif de démonstration, du plus élevé au plus faible. */
+function CetSoldes() {
+  const rows = [...AGENTS].sort((a, b) => b.joursCET - a.joursCET);
+  const aControler = rows.filter(a => a.joursCET >= CET_SEUIL_ALERTE).length;
+  return (
+    <>
+      <div className={aControler > 0 ? 'notice-warning' : 'notice-info'} style={{ marginTop: 0 }}>
+        <span>{aControler > 0 ? '⚠' : 'ℹ️'}</span>
+        <div>
+          <strong>{aControler} compteur{aControler > 1 ? 's' : ''} CET à contrôler</strong> : solde de {CET_SEUIL_ALERTE} jours ou plus,
+          plafond réglementaire {CET_PLAFOND_JOURS} jours.
+        </div>
+      </div>
+      <div className="ds-card">
+        <div className="ds-card-header">
+          <span style={{ fontWeight: 700, color: 'var(--navy)' }}>Soldes CET — {rows.length} agents</span>
+        </div>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Agent</th>
+              <th>Matricule</th>
+              <th>Cat.</th>
+              <th>Service</th>
+              <th>Solde CET</th>
+              <th>Marge avant plafond</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(a => {
+              const alerte = a.joursCET >= CET_SEUIL_ALERTE;
+              return (
+                <tr key={a.id}>
+                  <td style={{ fontWeight: 600, fontSize: 13 }}>{nomListe(a)}</td>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)' }}>{a.id}</td>
+                  <td><strong>{a.cat}</strong></td>
+                  <td style={{ fontSize: 12 }}>{a.service}</td>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, color: alerte ? 'var(--danger)' : 'var(--text-primary)' }}>
+                    {a.joursCET} j{alerte ? ' ⚠' : ''}
+                  </td>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{Math.max(0, CET_PLAFOND_JOURS - a.joursCET)} j</td>
+                  <td>
+                    <Link href={`/agents/${a.id}`} className="btn-navy">Fiche →</Link>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </>
   );
 }
