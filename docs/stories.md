@@ -11,6 +11,7 @@
 > - la démo sans clic mort sur données fictives (« lot 2 » : `lib/demo-data.ts`, `lib/csv.ts`,
 >   `lib/prefill.ts`, recherche et filtres, pré-remplissage des simulateurs) : **prérequis bloquant**.
 >   Sa PR doit être fusionnée sur `main` avant de lancer `/ks-research` sur la moindre story.
+>   Contrôle : `git cat-file -e origin/main:apps/web/lib/demo-data.ts` doit réussir.
 >
 > Maintenance récurrente, pas une story : la revue annuelle des taux du moteur (CNRACL, IRCANTEC,
 > point d'indice, trimestres), sources datées dans `packages/engine/src/constants.ts`, suivie par un
@@ -46,7 +47,7 @@ fournisseur du modèle (`/ks-architect`).
 - Les outils exposés au modèle sont une recherche Légifrance et une lecture d'article. La vérification des citations est faite par le code, pas par le modèle.
 - Le skill `legal-hallucination-checker` décrit une méthode de contrôle des références ; il peut inspirer le jeu d'évaluation.
 - RGPD : la v1 ne voit aucune donnée nominative (décision du PRD).
-- Piège : le middleware protège toutes les routes. La route API doit exiger un utilisateur connecté, sauf en mode démo.
+- Piège : le middleware protège toutes les routes. La route API exige un utilisateur connecté, y compris en mode démo : un visiteur anonyme consommerait la clé du modèle. Ajouter une limite de questions par utilisateur et par jour.
 
 ---
 
@@ -113,7 +114,7 @@ leur rôle **so that** toute l'équipe travaille sur les mêmes dossiers.
 - [ ] Un membre voit les données de sa collectivité et d'aucune autre (test RLS avec deux collectivités).
 - [ ] Seul un DRH peut inviter, changer un rôle ou retirer un membre (test d'autorisation par rôle).
 - [ ] Un membre retiré perd l'accès à sa prochaine requête.
-- [ ] Le profil de l'assistant (s02) prend par défaut le rôle du membre.
+- [ ] Si s02 est livrée, le profil de l'assistant prend par défaut le rôle du membre (critère sans objet sinon : le bloc B n'attend pas la clé PISTE).
 
 ### Dependencies
 Aucune pour la mécanique. s02 pour le profil par défaut.
@@ -121,6 +122,7 @@ Aucune pour la mécanique. s02 pour le profil par défaut.
 ### Agentic notes
 - Aujourd'hui, `private.current_collectivite_id()` résout la collectivité par `collectivites.owner_id` : un seul utilisateur par collectivité. Il faut une table de membres, et toutes les politiques RLS doivent la lire.
 - La migration relève de la voie `full`, avec un commit de migration séparé.
+- Reprise de l'existant : la migration inscrit chaque `owner_id` actuel comme membre DRH de sa collectivité. Sinon les propriétaires perdent l'accès.
 - Étendre `apps/web/supabase/tests/tenant_rls_test.sql`.
 
 ---
@@ -145,7 +147,7 @@ enregistrés dans TIARHA **so that** je travaille sur mes vrais dossiers et non 
 s04-equipe-rh (politiques RLS par membre).
 
 ### Agentic notes
-- La table `agents` existe (`001_initial.sql`). Il lui manque des colonnes de la fiche démo (grade, service, trimestres, CET, quotité) : c'est une migration, donc la voie `full`.
+- La table `agents` existe (`001_initial.sql`). Il lui manque des colonnes de la fiche démo (grade, service, trimestres, CET, quotité), et `matricule` doit devenir `NOT NULL` et unique par collectivité (utilisé par s06 et s07) : c'est une migration, donc la voie `full`.
 - Réutiliser `lib/csv.ts` et `lib/prefill.ts` du lot 2.
 - Lecture côté serveur avec `lib/supabase/server.ts`.
 
@@ -211,7 +213,7 @@ l'agent passe à demi-traitement.
 
 ### Acceptance criteria
 - [ ] « Saisir un arrêt » enregistre type, dates de début et de fin (fin facultative) pour un agent de ma collectivité.
-- [ ] La fiche et la page Absences affichent l'arrêt avec sa phase (90 % / demi-traitement…) et son coût, calculés par `calculerArret` avec le statut de l'agent.
+- [ ] La fiche et la page Absences affichent l'arrêt avec sa phase (90 % / demi-traitement…) et son coût, calculés par `calculerArret` avec le statut de l'agent. Un arrêt sans date de fin est chiffré jusqu'à la date du jour, avec la mention « en cours ».
 - [ ] Les jours déjà pris sur les 12 derniers mois sont comptés pour déterminer la phase d'un nouveau CMO.
 - [ ] Une date de fin antérieure à la date de début est refusée.
 - [ ] Seuls les rôles DRH et gestionnaire saisissent ou modifient un arrêt. L'assistante RH voit les arrêts en lecture seule (écran et serveur).
@@ -237,8 +239,8 @@ plafond, départ possible à la retraite dans l'année) **so that** j'anticipe a
 ### Acceptance criteria
 - [ ] La cloche de notifications affiche le nombre d'alertes actives et leur liste, chacune menant à la fiche concernée.
 - [ ] Un CMO qui atteint 90 jours cumulés dans les 15 prochains jours génère une alerte « demi-traitement ».
-- [ ] Un CET à 55 jours ou plus génère une alerte « plafond CET ».
-- [ ] Un agent qui atteint son âge légal (`ageLegalDepart`) dans l'année génère une alerte « retraite ».
+- [ ] Un CET à `CET_PLAFOND_JOURS − 5` jours ou plus (55 aujourd'hui) génère une alerte « plafond CET ».
+- [ ] Un agent qui atteint son âge légal dans les 12 prochains mois génère une alerte « retraite ».
 - [ ] Chaque règle d'alerte a un test qui passe au rouge si la règle est supprimée.
 
 ### Dependencies
@@ -248,3 +250,4 @@ s08-saisie-arret, s05-agents-reels.
 - Alertes calculées à la lecture (pas de tâche planifiée en v1) avec les fonctions du moteur.
 - Réutiliser la fonction « jours de CMO sur 12 mois glissants » créée par s08 ; ne pas la réécrire.
 - Le solde CET et la date de naissance sont garantis par s05, s06 et s07.
+- Piège : `ageLegalDepart(anneeNaissance)` renvoie un âge fractionnaire (62,75) ; le combiner avec la date de naissance complète pour obtenir la date d'ouverture des droits.

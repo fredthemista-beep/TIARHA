@@ -44,7 +44,7 @@ le produit, et chacun a son assistant IA :
 |---|---|---|
 | Simulateurs réglementaires (arrêts, IHTS/CET, retraite, annualisation) | 3 | Déjà construits. Il reste la maintenance réglementaire annuelle et le branchement aux vrais dossiers |
 | Assistant IA statutaire, réponses sourcées Légifrance | 4 | Deux systèmes externes (LLM, API PISTE). Il doit citer ses sources et refuser de répondre sans source. C'est le cœur de valeur, donc on le garde malgré le score |
-| Dossiers agents (fiche, carrière, CET, quotité) | 3 | Liste et fiche avec RLS multi-tenant. Fichier de démo déjà en place (lot 2) |
+| Dossiers agents (fiche, carrière, CET, quotité) | 3 | Liste et fiche avec RLS multi-tenant. Fichier de démo livré par le lot 2 (prérequis à fusionner) |
 | Suivi des absences et alertes (phases CMO, plafond CET) | 3 | Règles métier sur plusieurs états, réutilise le moteur |
 | Import des agents (CSV/XLSX) et export CSV | 2 | Mise en service d'une commune sans ressaisie |
 | Auth par lien magique et isolation par collectivité | 3 | Déjà en place (migration `secure_tenant_access`) ; reste à la brancher sur toutes les données |
