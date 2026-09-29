@@ -1,41 +1,67 @@
+'use client';
+
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Topbar } from '@/components/dashboard/Topbar';
+import { TodayDate } from '@/components/dashboard/TodayDate';
+import { CsvExportButton } from '@/components/dashboard/CsvExportButton';
+import { DemoButton } from '@/components/ui/demo-toast';
+import {
+  AGENTS, ORG, SERVICES, ancienneteMoyenne, matchAgent, nomListe, statutLabel, type Categorie, type StatutCode,
+} from '@/lib/demo-data';
+import { fmtDateFr } from '@/lib/format';
 
-const AGENTS = [
-  { id: 'A001', initiales: 'MD', nom: 'Dubois Martin',      prenom: 'Martin',    statut: 'tit',  cat: 'B', grade: 'Rédacteur principal 1ère cl.', im: 460, service: 'DRH',             tel: '05 56 10 21 01', dateEntree: '2008-03-12', quotite: 100 },
-  { id: 'A002', initiales: 'SL', nom: 'Laurent Sophie',     prenom: 'Sophie',    statut: 'tit',  cat: 'A', grade: 'Attaché principal',             im: 620, service: 'Direction générale', tel: '05 56 10 21 02', dateEntree: '2015-09-01', quotite: 100 },
-  { id: 'A003', initiales: 'JM', nom: 'Moreau Jean',        prenom: 'Jean',      statut: 'cont', cat: 'C', grade: 'Adjoint administratif',          im: 340, service: 'Accueil',          tel: '05 56 10 21 03', dateEntree: '2022-01-10', quotite: 80  },
-  { id: 'A004', initiales: 'AB', nom: 'Bernard Alice',      prenom: 'Alice',     statut: 'tit',  cat: 'C', grade: 'Adjoint technique principal 2e', im: 380, service: 'Bâtiments',        tel: '05 56 10 21 04', dateEntree: '2010-06-15', quotite: 100 },
-  { id: 'A005', initiales: 'TC', nom: 'Colin Thomas',       prenom: 'Thomas',    statut: 'tit',  cat: 'B', grade: 'Technicien principal 2ème cl.',  im: 500, service: 'Informatique',     tel: '05 56 10 21 05', dateEntree: '2018-04-02', quotite: 100 },
-  { id: 'A006', initiales: 'MR', nom: 'Richard Marie',      prenom: 'Marie',     statut: 'cont', cat: 'B', grade: 'Rédacteur',                      im: 460, service: 'Communication',   tel: '05 56 10 21 06', dateEntree: '2021-11-15', quotite: 100 },
-  { id: 'A007', initiales: 'PV', nom: 'Vincent Paul',       prenom: 'Paul',      statut: 'tit',  cat: 'A', grade: 'Ingénieur en chef',              im: 680, service: 'Voirie',           tel: '05 56 10 21 07', dateEntree: '2003-02-20', quotite: 100 },
-  { id: 'A008', initiales: 'CF', nom: 'Fontaine Clara',     prenom: 'Clara',     statut: 'tit',  cat: 'C', grade: 'ATSEM principal 2ème cl.',        im: 360, service: 'Éducation',        tel: '05 56 10 21 08', dateEntree: '2013-08-28', quotite: 100 },
-  { id: 'A009', initiales: 'RB', nom: 'Blanc Rémi',         prenom: 'Rémi',      statut: 'tit',  cat: 'B', grade: 'Éducateur des APS principal',    im: 490, service: 'Sports',           tel: '05 56 10 21 09', dateEntree: '2011-01-03', quotite: 100 },
-  { id: 'A010', initiales: 'NP', nom: 'Petit Nathalie',     prenom: 'Nathalie',  statut: 'tit',  cat: 'A', grade: 'Bibliothécaire',                 im: 550, service: 'Culture',          tel: '05 56 10 21 10', dateEntree: '2016-10-17', quotite: 100 },
-  { id: 'A011', initiales: 'KD', nom: 'Dupont Karim',       prenom: 'Karim',     statut: 'cont', cat: 'C', grade: 'Adjoint technique',              im: 340, service: 'Propreté',         tel: '05 56 10 21 11', dateEntree: '2023-03-06', quotite: 80  },
-  { id: 'A012', initiales: 'EG', nom: 'Gauthier Emma',      prenom: 'Emma',      statut: 'tit',  cat: 'B', grade: 'Animateur principal 1ère cl.',   im: 470, service: 'Jeunesse',         tel: '05 56 10 21 12', dateEntree: '2019-09-01', quotite: 100 },
-  { id: 'A013', initiales: 'LM', nom: 'Martinez Lucie',     prenom: 'Lucie',     statut: 'tit',  cat: 'A', grade: 'Médecin territorial',            im: 750, service: 'Santé/Prévention', tel: '05 56 10 21 13', dateEntree: '2007-05-14', quotite: 100 },
-  { id: 'A014', initiales: 'HP', nom: 'Perron Hugo',        prenom: 'Hugo',      statut: 'cont', cat: 'B', grade: 'Technicien',                     im: 440, service: 'Informatique',     tel: '05 56 10 21 14', dateEntree: '2022-07-01', quotite: 100 },
-  { id: 'A015', initiales: 'CS', nom: 'Simon Chloé',        prenom: 'Chloé',     statut: 'tit',  cat: 'C', grade: 'Agent de maîtrise principal',    im: 400, service: 'Restauration',     tel: '05 56 10 21 15', dateEntree: '2009-04-22', quotite: 100 },
-  { id: 'A016', initiales: 'OL', nom: 'Leroy Olivier',      prenom: 'Olivier',   statut: 'tit',  cat: 'A', grade: 'Directeur territorial',          im: 830, service: 'Direction générale', tel: '05 56 10 21 16', dateEntree: '2001-11-09', quotite: 100 },
-  { id: 'A017', initiales: 'AM', nom: 'Moulin Aline',       prenom: 'Aline',     statut: 'tit',  cat: 'B', grade: 'Rédacteur principal 2ème cl.',   im: 450, service: 'Finances',         tel: '05 56 10 21 17', dateEntree: '2014-02-03', quotite: 80  },
-  { id: 'A018', initiales: 'VT', nom: 'Thomas Viviane',     prenom: 'Viviane',   statut: 'cont', cat: 'C', grade: 'Adjoint administratif',          im: 340, service: 'Accueil',          tel: '05 56 10 21 18', dateEntree: '2023-09-01', quotite: 100 },
-  { id: 'A019', initiales: 'JC', nom: 'Chabrier Jules',     prenom: 'Jules',     statut: 'tit',  cat: 'A', grade: 'Ingénieur',                      im: 600, service: 'Urbanisme',        tel: '05 56 10 21 19', dateEntree: '2017-06-12', quotite: 100 },
-  { id: 'A020', initiales: 'PR', nom: 'Renard Patricia',    prenom: 'Patricia',  statut: 'tit',  cat: 'C', grade: 'Adjoint du patrimoine principal', im: 370, service: 'Culture',          tel: '05 56 10 21 20', dateEntree: '2006-03-08', quotite: 100 },
-];
+const PAGE_SIZE = 10;
 
-const SERVICES = ['Tous', 'DRH', 'Direction générale', 'Accueil', 'Bâtiments', 'Informatique', 'Communication', 'Voirie', 'Éducation', 'Sports', 'Culture', 'Propreté', 'Jeunesse', 'Santé/Prévention', 'Finances', 'Restauration', 'Urbanisme'];
+const FILTER_INPUT: React.CSSProperties = {
+  height: 36, padding: '0 10px',
+  background: 'var(--bg)', border: '1px solid var(--border)',
+  borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-ui)',
+  fontSize: 13, color: 'var(--text-secondary)', outline: 'none',
+};
+
+const CSV_HEADERS = ['Matricule', 'Nom', 'Prénom', 'Statut', 'Catégorie', 'Grade', 'IM', 'Service', 'Quotité (%)', 'Date d’entrée', 'Téléphone', 'Email'];
+
+const titulaires = AGENTS.filter(a => a.statut === 'tit').length;
+const contractuels = AGENTS.length - titulaires;
+const catA = AGENTS.filter(a => a.cat === 'A').length;
+const catB = AGENTS.filter(a => a.cat === 'B').length;
+const catC = AGENTS.filter(a => a.cat === 'C').length;
+const tempsPartiel = AGENTS.filter(a => a.quotite < 100).length;
+const quotiteMoyenne = Math.round(AGENTS.reduce((s, a) => s + a.quotite, 0) / AGENTS.length);
+const ancienneteMoy = ancienneteMoyenne().toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+
 
 export default function AgentsPage() {
-  const titulaires  = AGENTS.filter(a => a.statut === 'tit').length;
-  const contractuels = AGENTS.filter(a => a.statut === 'cont').length;
-  const catA = AGENTS.filter(a => a.cat === 'A').length;
-  const catB = AGENTS.filter(a => a.cat === 'B').length;
-  const catC = AGENTS.filter(a => a.cat === 'C').length;
+  const [query, setQuery] = useState('');
+  const [service, setService] = useState('Tous');
+  const [cat, setCat] = useState<Categorie | 'Toutes'>('Toutes');
+  const [statut, setStatut] = useState<StatutCode | 'tous'>('tous');
+  const [page, setPage] = useState(1);
+
+  const filtered = useMemo(() => AGENTS.filter(a =>
+    matchAgent(a, query)
+    && (service === 'Tous' || a.service === service)
+    && (cat === 'Toutes' || a.cat === cat)
+    && (statut === 'tous' || a.statut === statut),
+  ), [query, service, cat, statut]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const rows = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const hasFilters = query !== '' || service !== 'Tous' || cat !== 'Toutes' || statut !== 'tous';
+
+  function resetFilters() {
+    setQuery(''); setService('Tous'); setCat('Toutes'); setStatut('tous'); setPage(1);
+  }
+
+  const csvRows = filtered.map(a => [
+    a.id, a.nom, a.prenom, statutLabel(a.statut), a.cat, a.grade, a.im, a.service, a.quotite, fmtDateFr(a.dateEntree), a.tel, a.email,
+  ]);
 
   return (
     <>
-      <Topbar title="Agents" subtitle="Mairie de Foix — RH" plan="pro" notifCount={3} />
+      <Topbar title="Agents" subtitle={`${ORG.collectivite} — RH`} notifCount={3} />
 
       <div className="page-header">
         <div className="page-header-top">
@@ -44,18 +70,30 @@ export default function AgentsPage() {
             <div className="page-subtitle">
               <span className="legal-tag">CGFP</span>
               <span className="legal-tag">Loi 84-53</span>
-              Mairie de Foix · {AGENTS.length} agents affichés · Extrait 1 240 actifs
+              {ORG.collectivite} · {AGENTS.length} agents (démo)
             </div>
           </div>
           <div className="btn-row">
-            <button className="btn-secondary">↑ Importer XLSX</button>
-            <button className="btn-primary">+ Nouvel agent</button>
+            <DemoButton className="btn-secondary">↑ Importer</DemoButton>
+            <DemoButton className="btn-primary">+ Nouvel agent</DemoButton>
           </div>
         </div>
         <div className="sub-nav">
-          <button className="sub-tab active">Tous les agents</button>
-          <button className="sub-tab">Titulaires ({titulaires})</button>
-          <button className="sub-tab">Contractuels ({contractuels})</button>
+          {([
+            { key: 'tous', label: `Tous les agents (${AGENTS.length})` },
+            { key: 'tit', label: `Titulaires (${titulaires})` },
+            { key: 'cont', label: `Contractuels (${contractuels})` },
+          ] as const).map(t => (
+            <button
+              key={t.key}
+              type="button"
+              className={`sub-tab${statut === t.key ? ' active' : ''}`}
+              aria-pressed={statut === t.key}
+              onClick={() => { setStatut(t.key); setPage(1); }}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -65,24 +103,24 @@ export default function AgentsPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 24 }}>
           <div className="kpi-card navy">
             <div className="kpi-label">Total agents</div>
-            <div className="kpi-value">1 240</div>
-            <div className="kpi-meta">{titulaires} titulaires · {contractuels} contractuels (extrait)</div>
+            <div className="kpi-value">{AGENTS.length}</div>
+            <div className="kpi-meta">{titulaires} titulaires · {contractuels} contractuels (démo)</div>
           </div>
           <div className="kpi-card indigo">
             <div className="kpi-label">Répartition catégories</div>
             <div className="kpi-value indigo" style={{ fontSize: 16, fontWeight: 700, lineHeight: '1.6' }}>
               A : {catA} · B : {catB} · C : {catC}
             </div>
-            <div className="kpi-meta">Extrait affiché</div>
+            <div className="kpi-meta">Effectif de démonstration</div>
           </div>
           <div className="kpi-card teal">
             <div className="kpi-label">Quotité moyenne</div>
-            <div className="kpi-value teal">94 %</div>
-            <div className="kpi-meta">3 agents à temps partiel</div>
+            <div className="kpi-value teal">{quotiteMoyenne} %</div>
+            <div className="kpi-meta">{tempsPartiel} agents à temps partiel</div>
           </div>
           <div className="kpi-card amber">
             <div className="kpi-label">Ancienneté moyenne</div>
-            <div className="kpi-value amber">11,4 ans</div>
+            <div className="kpi-value amber">{ancienneteMoy} ans</div>
             <div className="kpi-meta">Depuis date d&apos;entrée</div>
           </div>
         </div>
@@ -94,8 +132,11 @@ export default function AgentsPage() {
             display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
           }}>
             <input
-              type="text"
-              placeholder="Rechercher un agent…"
+              type="search"
+              placeholder="Rechercher un agent (nom, prénom, matricule, grade)…"
+              aria-label="Rechercher un agent"
+              value={query}
+              onChange={e => { setQuery(e.target.value); setPage(1); }}
               style={{
                 height: 36, padding: '0 12px', flex: '1 1 220px', minWidth: 180,
                 background: 'var(--bg)', border: '1px solid var(--border)',
@@ -103,28 +144,33 @@ export default function AgentsPage() {
                 fontSize: 13, color: 'var(--text-primary)', outline: 'none',
               }}
             />
-            <select style={{
-              height: 36, padding: '0 10px',
-              background: 'var(--bg)', border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-ui)',
-              fontSize: 13, color: 'var(--text-secondary)', outline: 'none',
-            }}>
-              {SERVICES.map(s => <option key={s}>{s}</option>)}
+            <select
+              aria-label="Filtrer par service"
+              style={FILTER_INPUT}
+              value={service}
+              onChange={e => { setService(e.target.value); setPage(1); }}
+            >
+              <option value="Tous">Tous les services</option>
+              {SERVICES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
-            <select style={{
-              height: 36, padding: '0 10px',
-              background: 'var(--bg)', border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-ui)',
-              fontSize: 13, color: 'var(--text-secondary)', outline: 'none',
-            }}>
-              <option>Toutes catégories</option>
-              <option>Catégorie A</option>
-              <option>Catégorie B</option>
-              <option>Catégorie C</option>
+            <select
+              aria-label="Filtrer par catégorie"
+              style={FILTER_INPUT}
+              value={cat}
+              onChange={e => { setCat(e.target.value as Categorie | 'Toutes'); setPage(1); }}
+            >
+              <option value="Toutes">Toutes catégories</option>
+              <option value="A">Catégorie A</option>
+              <option value="B">Catégorie B</option>
+              <option value="C">Catégorie C</option>
             </select>
-            <button className="btn-secondary" style={{ fontSize: 12, padding: '0 12px', height: 36, whiteSpace: 'nowrap' }}>
-              ↓ Exporter XLSX
-            </button>
+            <CsvExportButton
+              filename="agents"
+              headers={CSV_HEADERS}
+              rows={csvRows}
+              icon={false}
+              style={{ fontSize: 12, padding: '0 12px', height: 36, whiteSpace: 'nowrap' }}
+            />
           </div>
         </div>
 
@@ -136,9 +182,9 @@ export default function AgentsPage() {
                 width: 24, height: 24, borderRadius: 5, background: 'var(--info-bg)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12,
               }}>👥</span>
-              Répertoire agents — {AGENTS.length} résultats
+              Répertoire agents — {filtered.length} résultat{filtered.length > 1 ? 's' : ''}
             </span>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Mis à jour le 12/05/2026</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Mis à jour le <TodayDate format="short" /></span>
           </div>
 
           <table className="data-table">
@@ -157,7 +203,21 @@ export default function AgentsPage() {
               </tr>
             </thead>
             <tbody>
-              {AGENTS.map(a => (
+              {rows.length === 0 && (
+                <tr>
+                  <td colSpan={10} style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+                    Aucun agent ne correspond à ces critères.{' '}
+                    <button
+                      type="button"
+                      onClick={resetFilters}
+                      style={{ border: 0, background: 'none', color: 'var(--indigo)', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}
+                    >
+                      Réinitialiser les filtres
+                    </button>
+                  </td>
+                </tr>
+              )}
+              {rows.map(a => (
                 <tr key={a.id}>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -168,7 +228,7 @@ export default function AgentsPage() {
                         {a.initiales}
                       </div>
                       <div>
-                        <div style={{ fontWeight: 600, fontSize: 13 }}>{a.nom}</div>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>{nomListe(a)}</div>
                         <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{a.tel}</div>
                       </div>
                     </div>
@@ -176,7 +236,7 @@ export default function AgentsPage() {
                   <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)' }}>{a.id}</td>
                   <td>
                     <span className={`badge badge-${a.statut}`}>
-                      {a.statut === 'tit' ? 'Titulaire' : 'Contractuel'}
+                      {statutLabel(a.statut)}
                     </span>
                   </td>
                   <td><strong>{a.cat}</strong></td>
@@ -193,7 +253,7 @@ export default function AgentsPage() {
                     </span>
                   </td>
                   <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>
-                    {new Date(a.dateEntree).toLocaleDateString('fr-FR')}
+                    {fmtDateFr(a.dateEntree)}
                   </td>
                   <td>
                     <Link href={`/agents/${a.id}`} className="btn-navy">
@@ -211,20 +271,42 @@ export default function AgentsPage() {
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           }}>
             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              Affichage 1–{AGENTS.length} sur 1 240 agents
+              {filtered.length === 0
+                ? 'Aucun résultat'
+                : `Affichage ${(currentPage - 1) * PAGE_SIZE + 1}–${(currentPage - 1) * PAGE_SIZE + rows.length} sur ${filtered.length} agent${filtered.length > 1 ? 's' : ''}${hasFilters ? ' filtrés' : ' (démo)'}`}
             </span>
-            <div style={{ display: 'flex', gap: 4 }}>
-              {['←', '1', '2', '3', '…', '62', '→'].map((p, i) => (
-                <button key={i} style={{
-                  width: 30, height: 30, border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-sm)', background: p === '1' ? 'var(--navy)' : 'transparent',
-                  color: p === '1' ? 'white' : 'var(--text-secondary)',
-                  fontFamily: 'var(--font-ui)', fontSize: 12, cursor: 'pointer',
-                }}>
-                  {p}
-                </button>
-              ))}
-            </div>
+            {pageCount > 1 && (
+              <div style={{ display: 'flex', gap: 4 }}>
+                {[
+                  { key: 'prev', label: '←', target: currentPage - 1, disabled: currentPage === 1, aria: 'Page précédente' },
+                  ...Array.from({ length: pageCount }, (_, i) => ({
+                    key: `p${i + 1}`, label: String(i + 1), target: i + 1, disabled: false, aria: `Page ${i + 1}`,
+                  })),
+                  { key: 'next', label: '→', target: currentPage + 1, disabled: currentPage === pageCount, aria: 'Page suivante' },
+                ].map(p => {
+                  const active = p.label === String(currentPage);
+                  return (
+                    <button
+                      key={p.key}
+                      type="button"
+                      aria-label={p.aria}
+                      aria-current={active ? 'page' : undefined}
+                      disabled={p.disabled}
+                      onClick={() => setPage(p.target)}
+                      style={{
+                        width: 30, height: 30, border: '1px solid var(--border)',
+                        borderRadius: 'var(--radius-sm)', background: active ? 'var(--navy)' : 'transparent',
+                        color: active ? 'white' : 'var(--text-secondary)',
+                        fontFamily: 'var(--font-ui)', fontSize: 12,
+                        cursor: p.disabled ? 'not-allowed' : 'pointer', opacity: p.disabled ? 0.4 : 1,
+                      }}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 

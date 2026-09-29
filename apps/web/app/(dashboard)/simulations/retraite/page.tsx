@@ -1,9 +1,13 @@
 'use client';
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   calculerRetraite, trimestresRequisTauxPlein, ageLegalDepart, POINT_INDICE, ENGINE_VERSION,
 } from '@tiarh/engine';
 import { Topbar } from '@/components/dashboard/Topbar';
+import { PrefillNotice } from '@/components/dashboard/PrefillNotice';
+import { getAgent } from '@/lib/demo-data';
+import { readNumber, withOption } from '@/lib/prefill';
 
 const IM_OPTIONS = [
   { value: 350, label: 'IM 350 — Cat. C' },
@@ -73,28 +77,79 @@ const INPUT: React.CSSProperties = {
   appearance: 'none' as const,
 };
 
-export default function RetireSimPage() {
-  const [showPanel, setShowPanel] = useState(false);
-  const [form, setForm] = useState({
-    indiceMajore:      '500',
-    trimestresValides: '172',
-    anneeNaissance:    '1965',
-    anneeDepart:       '2029',
-  });
-  const [result, setResult] = useState<ReturnType<typeof calculerRetraite> | null>(null);
+type RetraiteForm = {
+  indiceMajore: string;
+  trimestresValides: string;
+  anneeNaissance: string;
+  anneeDepart: string;
+};
 
-  function set(key: keyof typeof form, value: string) {
+function computeRetraite(form: RetraiteForm) {
+  return calculerRetraite({
+    indiceMajore:      Number(form.indiceMajore),
+    trimestresValides: Number(form.trimestresValides),
+    anneeNaissance:    Number(form.anneeNaissance),
+    anneeDepart:       Number(form.anneeDepart),
+  });
+}
+
+/** Formulaire initial : paramètres d'URL (fiche agent) ou valeurs par défaut. */
+function readPrefill(params: URLSearchParams | { get(k: string): string | null }) {
+  const im = readNumber(params, 'im', 200, 1500);
+  const trim = readNumber(params, 'trim', 0, 250);
+  const naissance = readNumber(params, 'naissance', 1940, 2010);
+  if (im === null || trim === null || naissance === null) {
+    return {
+      prefilled: false,
+      trimAcquis: null,
+      form: { indiceMajore: '500', trimestresValides: '172', anneeNaissance: '1965', anneeDepart: '2029' },
+    };
+  }
+  const currentYear = new Date().getFullYear();
+  const departLegal = naissance + Math.ceil(ageLegalDepart(naissance));
+  const anneeDepart = Math.max(currentYear, departLegal);
+  // Trimestres acquis au dossier + 4 par année restante jusqu'au départ (carrière complète supposée).
+  const projetes = Math.min(190, Math.round(trim) + (anneeDepart - currentYear) * 4);
+  return {
+    prefilled: true,
+    trimAcquis: Math.round(trim),
+    form: {
+      indiceMajore: String(im),
+      trimestresValides: String(projetes),
+      anneeNaissance: String(naissance),
+      anneeDepart: String(anneeDepart),
+    },
+  };
+}
+
+export default function RetireSimPage() {
+  return (
+    <Suspense fallback={null}>
+      <RetireSim />
+    </Suspense>
+  );
+}
+
+function RetireSim() {
+  const searchParams = useSearchParams();
+  const [initial] = useState(() => readPrefill(searchParams));
+  const agentId = initial.prefilled ? searchParams.get('agent') : null;
+  const agent = getAgent(agentId);
+  const [showPanel, setShowPanel] = useState(false);
+  const [form, setForm] = useState<RetraiteForm>(initial.form);
+  const [result, setResult] = useState<ReturnType<typeof calculerRetraite> | null>(
+    () => (initial.prefilled ? computeRetraite(initial.form) : null),
+  );
+
+  function set(key: keyof RetraiteForm, value: string) {
     setForm(p => ({ ...p, [key]: value }));
   }
 
   function calc() {
-    setResult(calculerRetraite({
-      indiceMajore:      Number(form.indiceMajore),
-      trimestresValides: Number(form.trimestresValides),
-      anneeNaissance:    Number(form.anneeNaissance),
-      anneeDepart:       Number(form.anneeDepart),
-    }));
+    setResult(computeRetraite(form));
   }
+
+  const imOptions = withOption(IM_OPTIONS, Number(form.indiceMajore), `IM ${form.indiceMajore} — dossier agent`);
 
   const trimestres = Number(form.trimestresValides);
   const hasDecote  = result && result.decote > 0;
@@ -104,7 +159,7 @@ export default function RetireSimPage() {
 
   return (
     <>
-      <Topbar title="RetireSim" subtitle="Pension CNRACL — Réforme 2023" plan="pro" />
+      <Topbar title="RetireSim" subtitle="Pension CNRACL — Réforme 2023" />
 
       <div className="page-header">
         <div className="page-header-top">
@@ -122,13 +177,23 @@ export default function RetireSimPage() {
           </div>
         </div>
         <div className="sub-nav">
-          <button className="sub-tab active">Simulation</button>
-          <button className="sub-tab">Barème</button>
-          <button className="sub-tab">Historique</button>
+          <button type="button" className={`sub-tab${showPanel ? '' : ' active'}`} onClick={() => setShowPanel(false)}>Simulation</button>
+          <button type="button" className={`sub-tab${showPanel ? ' active' : ''}`} onClick={() => setShowPanel(true)}>Barème</button>
+          <button type="button" className="sub-tab" disabled title="Bientôt disponible">Historique</button>
         </div>
       </div>
 
       <div className="page-body">
+
+        <PrefillNotice
+          agentId={agentId}
+          extra={[
+            initial.trimAcquis !== null
+              ? `${initial.trimAcquis} T acquis, projetés à ${initial.form.trimestresValides} T au départ en ${initial.form.anneeDepart}`
+              : null,
+            agent && agent.regime !== 'CNRACL' ? 'agent contractuel affilié IRCANTEC : estimation CNRACL indicative' : null,
+          ].filter(Boolean).join(' · ') || undefined}
+        />
 
         {/* KPI strip */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 24 }}>
@@ -180,7 +245,7 @@ export default function RetireSimPage() {
                 <div>
                   <div style={LABEL}>Indice Majoré (IM)</div>
                   <select style={INPUT} value={form.indiceMajore} onChange={e => set('indiceMajore', e.target.value)}>
-                    {IM_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    {imOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
                 <div>

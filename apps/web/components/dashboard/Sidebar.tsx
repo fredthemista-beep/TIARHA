@@ -16,6 +16,8 @@ import {
   UsersRound,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { AGENTS, ORG } from '@/lib/demo-data';
+import { showToast } from '@/components/ui/demo-toast';
 
 type NavItem = {
   href: string;
@@ -94,11 +96,16 @@ export function Sidebar() {
         </div>
       </div>
 
-      <button type="button" className="sidebar-collectivity" aria-label="Changer de collectivité">
-        <span className="sidebar-collectivity-mark">MF</span>
+      <button
+        type="button"
+        className="sidebar-collectivity"
+        aria-label="Changer de collectivité"
+        onClick={() => showToast()}
+      >
+        <span className="sidebar-collectivity-mark">{ORG.initiales}</span>
         <span>
-          <strong>Mairie de Foix</strong>
-          <small>1 240 agents · Plan Pro</small>
+          <strong>{ORG.collectivite}</strong>
+          <small>{AGENTS.length} agents · Accès {ORG.planLabel.toLowerCase()}</small>
         </span>
         <ChevronDown aria-hidden="true" />
       </button>
