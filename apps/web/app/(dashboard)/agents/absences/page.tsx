@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { SaisieArretDrawer } from '@/components/dashboard/SaisieArretDrawer';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Topbar } from '@/components/dashboard/Topbar';
 import { TodayDate } from '@/components/dashboard/TodayDate';
 import { CsvExportButton } from '@/components/dashboard/CsvExportButton';
-import { DemoButton } from '@/components/ui/demo-toast';
 import {
   ABSENCES_EN_COURS, ABSENCES_HISTORIQUE, ORG, TYPE_ABSENCE_LABEL, nomComplet, nomListe, type AbsenceAvecAgent,
 } from '@/lib/demo-data';
@@ -67,6 +67,7 @@ function csvRows(list: AbsenceAvecAgent[]) {
 export default function AbsencesPage() {
   const router = useRouter();
   const [tab, setTab] = useState<'en-cours' | 'historique'>('en-cours');
+  const [saisieOuverte, setSaisieOuverte] = useState(false);
   const openAgent = (id: string) => router.push(`/agents/${id}`);
 
   return (
@@ -85,7 +86,7 @@ export default function AbsencesPage() {
           </div>
           <div className="btn-row">
             <Link href="/" className="btn-secondary">📄 Tableaux de bord RH</Link>
-            <DemoButton className="btn-primary">+ Saisir un arrêt</DemoButton>
+            <button type="button" className="btn-primary" onClick={() => setSaisieOuverte(true)}>+ Saisir un arrêt</button>
           </div>
         </div>
         <div className="sub-nav">
@@ -325,6 +326,12 @@ export default function AbsencesPage() {
         </>)}
 
       </div>
+      {saisieOuverte && (
+        <SaisieArretDrawer
+          onClose={() => setSaisieOuverte(false)}
+          onSaved={id => router.push(`/agents/${id}`)}
+        />
+      )}
     </>
   );
 }
