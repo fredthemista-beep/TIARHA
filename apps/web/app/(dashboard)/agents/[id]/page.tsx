@@ -6,6 +6,8 @@ import { trimestresRequisTauxPlein } from '@tiarh/engine';
 import { Topbar } from '@/components/dashboard/Topbar';
 import { DemoButton } from '@/components/ui/demo-toast';
 import { getAgent, simulationLinks } from '@/lib/demo-data';
+import { useArretsDemo } from '@/lib/arret-demo';
+import { SaisieArretDrawer } from '@/components/dashboard/SaisieArretDrawer';
 import { fmtDateFr, fmtEuro } from '@/lib/format';
 
 /* ── Helpers ──────────────────────────────────────────────────── */
@@ -58,6 +60,8 @@ export default function FicheAgentPage() {
   const agent = getAgent(id);
 
   const [tab, setTab] = useState<'situation' | 'absences' | 'carriere' | 'simulations' | 'documents'>('situation');
+  const [saisieOuverte, setSaisieOuverte] = useState(false);
+  const arretsDemo = useArretsDemo(agent?.id);
 
   if (!agent) {
     return (
@@ -80,7 +84,8 @@ export default function FicheAgentPage() {
 
   const pos = POSITION_COLOR[agent.position] ?? POSITION_COLOR['Activité'];
   const congesRestants = agent.droitConges - agent.congesPris;
-  const totalAbsencesCout = agent.absences.reduce((s, a) => s + a.cout, 0);
+  const absences = [...arretsDemo, ...agent.absences];
+  const totalAbsencesCout = absences.reduce((s, a) => s + a.cout, 0);
   const trimRequis = trimestresRequisTauxPlein(Number(agent.dateNaissance.slice(0, 4)));
   const links = simulationLinks(agent);
 
@@ -141,7 +146,7 @@ export default function FicheAgentPage() {
           <div className="btn-row">
             <DemoButton className="btn-secondary" style={{ fontSize: 12 }}>✏️ Modifier</DemoButton>
             <button type="button" className="btn-secondary" style={{ fontSize: 12 }} onClick={() => window.print()}>📄 Exporter PDF</button>
-            <DemoButton className="btn-primary" style={{ fontSize: 12 }}>+ Saisir un arrêt</DemoButton>
+            <button type="button" className="btn-primary" style={{ fontSize: 12 }} onClick={() => setSaisieOuverte(true)}>+ Saisir un arrêt</button>
           </div>
         </div>
 
@@ -149,7 +154,7 @@ export default function FicheAgentPage() {
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border-soft)', marginTop: 4 }}>
           {([
             { key: 'situation',   label: 'Situation administrative' },
-            { key: 'absences',    label: `Absences (${agent.absences.length})` },
+            { key: 'absences',    label: `Absences (${absences.length})` },
             { key: 'carriere',    label: 'Carrière' },
             { key: 'simulations', label: 'Simulations' },
             { key: 'documents',   label: `Documents (${agent.documents.length})` },
@@ -257,7 +262,7 @@ export default function FicheAgentPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 24 }}>
               <div className="kpi-card danger">
                 <div className="kpi-label">Arrêts total</div>
-                <div className="kpi-value danger">{agent.absences.length}</div>
+                <div className="kpi-value danger">{absences.length}</div>
                 <div className="kpi-meta">Historique complet</div>
               </div>
               <div className="kpi-card amber">
@@ -268,7 +273,7 @@ export default function FicheAgentPage() {
               <div className="kpi-card navy">
                 <div className="kpi-label">Durée totale</div>
                 <div className="kpi-value navy">
-                  {agent.absences.reduce((s, a) => s + a.duree, 0)} j
+                  {absences.reduce((s, a) => s + a.duree, 0)} j
                 </div>
                 <div className="kpi-meta">Tous arrêts confondus</div>
               </div>
@@ -291,7 +296,7 @@ export default function FicheAgentPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {agent.absences.map(a => {
+                  {absences.map(a => {
                     const meta = TYPE_COLOR[a.type] ?? { color: 'var(--text-muted)', bg: 'var(--surface-2)' };
                     const isActif = a.enCours;
                     return (
@@ -477,6 +482,13 @@ export default function FicheAgentPage() {
         )}
 
       </div>
+      {saisieOuverte && (
+        <SaisieArretDrawer
+          agentId={agent.id}
+          onClose={() => setSaisieOuverte(false)}
+          onSaved={() => setTab('absences')}
+        />
+      )}
     </>
   );
 }
